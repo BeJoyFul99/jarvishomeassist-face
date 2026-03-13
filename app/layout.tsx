@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${jetBrainsMono.variable} antialiased`}>
+      <body suppressHydrationWarning className={`${inter.variable} ${jetBrainsMono.variable} antialiased`}>
         <Providers>
           {children}
           <Toaster />

@@ -21,7 +21,7 @@ const NetworkSecurity = ({ status }: NetworkSecurityProps) => {
           <h3 className="text-sm font-medium text-foreground">Port Sentry</h3>
         </div>
         <div className="space-y-2">
-          {status.ports.map((p) => (
+          {status.ports?.map((p) => (
             <div key={p.port} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
               <div className="flex items-center gap-2.5">
                 <span className={`w-2 h-2 rounded-full ${p.open ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
@@ -45,7 +45,7 @@ const NetworkSecurity = ({ status }: NetworkSecurityProps) => {
           <h3 className="text-sm font-medium text-foreground">Active Connections</h3>
         </div>
         <div className="space-y-2">
-          {status.ssh_attempts.map((attempt, i) => (
+          {status.ssh_attempts?.map((attempt, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, x: -10 }}

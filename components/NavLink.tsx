@@ -12,12 +12,12 @@ interface NavLinkProps {
   end?: boolean;
 }
 
-export const NavLink = ({ 
-  href, 
-  children, 
+export const NavLink = ({
+  href,
+  children,
   className,
-  activeClassName = "bg-primary/10 text-primary border-r-2 border-primary",
-  end = false
+  activeClassName = "bg-primary/10 text-primary",
+  end = false,
 }: NavLinkProps) => {
   const pathname = usePathname();
   const isActive = end ? pathname === href : pathname?.startsWith(href);
@@ -26,9 +26,9 @@ export const NavLink = ({
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary/50",
+        "flex items-center gap-3 transition-colors",
         className,
-        isActive && activeClassName
+        isActive && activeClassName,
       )}
     >
       {children}
