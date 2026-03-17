@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { HardDrive } from "lucide-react";
+import { formatStorage, getStorageParts } from "@/lib/utils";
 
 interface StorageHealthProps {
   systemGb: number;
@@ -12,6 +13,8 @@ const StorageHealth = ({ systemGb, aiGb, availableGb, totalGb }: StorageHealthPr
   const sysPct = (systemGb / totalGb) * 100;
   const aiPct = (aiGb / totalGb) * 100;
   const availPct = (availableGb / totalGb) * 100;
+
+  const totalParts = getStorageParts(totalGb);
 
   return (
     <div className="glass-card-hover p-5">
@@ -44,8 +47,8 @@ const StorageHealth = ({ systemGb, aiGb, availableGb, totalGb }: StorageHealthPr
       </div>
 
       <div className="text-right mb-4">
-        <span className="text-2xl font-mono font-semibold text-foreground">{totalGb}</span>
-        <span className="text-sm text-muted-foreground ml-1">GB SSD</span>
+        <span className="text-2xl font-mono font-semibold text-foreground">{totalParts.value}</span>
+        <span className="text-sm text-muted-foreground ml-1">{totalParts.unit}</span>
       </div>
 
       <div className="space-y-2">
@@ -58,7 +61,7 @@ const StorageHealth = ({ systemGb, aiGb, availableGb, totalGb }: StorageHealthPr
             <span className="flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${color}`} /> {label}
             </span>
-            <span className="font-mono text-foreground">{value} GB</span>
+            <span className="font-mono text-foreground">{formatStorage(value)}</span>
           </div>
         ))}
       </div>

@@ -7,10 +7,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/useMobile";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
-import { Bell, Wifi, Shield, Cpu, HardDrive, Brain } from "lucide-react";
-import { motion } from "framer-motion";
+import NotificationCenter from "@/components/NotificationCenter";
+import { Wifi, Shield, Cpu, HardDrive, Brain } from "lucide-react";
 import { useFleet } from "@/hooks/useFleet";
 import { useFleetStore } from "@/store/useFleetStore";
+import { useFleetNotifications } from "@/hooks/useFleetNotifications";
+import { formatStorage } from "@/lib/utils";
 
 function getSignalQuality(dbm: number) {
   if (dbm > -40) return { label: "Ultra Stable", color: "text-cyan" };
@@ -25,9 +27,9 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
   const { setIsMobile, initialize } = useSidebarStore();
   const { refresh: refreshFleet } = useFleetStore();
   const isMobile = useIsMobile();
+  useFleetNotifications();
 
   const signal = getSignalQuality(activeNode.network.wifiSignal);
-  const alertActive = activeNode.cpu.temp > 90;
 
   React.useEffect(() => {
     initialize();
@@ -37,15 +39,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div
-        className="group/sidebar-wrapper flex min-h-svh w-full has-[data-variant=inset]:bg-sidebar"
-        style={
-          {
-            "--sidebar-width": "16rem",
-            "--sidebar-width-icon": "3rem",
-          } as React.CSSProperties
-        }
-      >
+      <div className="group/sidebar-wrapper flex min-h-svh w-full has-[data-variant=inset]:bg-sidebar">
         <div className="min-h-screen flex w-full bg-background">
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
@@ -66,7 +60,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
                       <HardDrive className="w-3 h-3 text-primary" />
                       TOTAL RAM:{" "}
                       <span className="text-foreground">
-                        {aggregated.totalRam} GB
+                        {formatStorage(aggregated.totalRam)}
                       </span>
                     </span>
                     <span className="text-border">│</span>
@@ -74,7 +68,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
                       <HardDrive className="w-3 h-3 text-amber" />
                       TOTAL STORAGE:{" "}
                       <span className="text-foreground">
-                        {aggregated.totalStorage} GB
+                        {formatStorage(aggregated.totalStorage)}
                       </span>
                     </span>
                     <span className="text-border">│</span>
@@ -134,21 +128,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
               </div>
 
               <div className="flex items-center gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`p-2 rounded-lg transition-colors relative ${
-                    alertActive
-                      ? "text-volcano"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
-                  title="Alerts"
-                >
-                  <Bell className="w-4 h-4" />
-                  {alertActive && (
-                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-volcano pulse-dot" />
-                  )}
-                </motion.button>
+                <NotificationCenter />
                 <UserProfileDropdown />
               </div>
             </header>

@@ -1,29 +1,37 @@
 import { useEffect } from "react";
-import { useFleetStore, useActiveNode, useAggregatedStats, type FleetNode, type FleetAgentLog } from "@/store/useFleetStore";
+import {
+  useFleetStore,
+  useActiveNode,
+  useAggregatedStats,
+  type FleetNode,
+  type FleetAgentLog,
+} from "@/store/useFleetStore";
 
 export function useFleet() {
-  const { 
-    nodes, 
-    activeNodeId, 
-    agentFeed, 
-    loadBalancerEnabled, 
-    setActiveNodeId, 
+  const {
+    nodes,
+    activeNodeId,
+    agentFeed,
+    loadBalancerEnabled,
+    setActiveNodeId,
     setLoadBalancerEnabled,
     addLog,
-    refresh
+    isInitialLoad,
+    isApiError,
+    refresh,
   } = useFleetStore();
 
   const activeNode = useActiveNode();
   const aggregated = useAggregatedStats();
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      refresh();
-      
+    const interval = setInterval(async () => {
+      await refresh();
+
       const nodeNames = ["MBA-2020", "Pi-Cluster-01", "Cloud-VPS"];
       const nodeIds = ["node-01", "node-02", "node-03"];
       const idx = Math.floor(Math.random() * 3);
-      
+
       addLog({
         nodeId: nodeIds[idx],
         nodeName: nodeNames[idx],
@@ -44,5 +52,9 @@ export function useFleet() {
     aggregated,
     loadBalancerEnabled,
     setLoadBalancerEnabled,
+    isInitialLoad,
+    isApiError,
   };
 }
+export { FleetAgentLog };
+

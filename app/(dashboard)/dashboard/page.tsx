@@ -11,7 +11,8 @@ import AgentFeed from "@/components/dashboard/AgentFeed";
 import ClusterMap from "@/components/dashboard/ClusterMap";
 import LiveFeed from "@/components/dashboard/LiveFeed";
 import { Switch } from "@/components/ui/switch";
-import { Wifi, Thermometer, Brain, Cpu, Laptop } from "lucide-react";
+import { Wifi, Thermometer, Brain, Cpu, Laptop, AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { SystemStatus } from "@/hooks/useSystemStatus";
 
 const container = {
@@ -36,7 +37,42 @@ export default function DashboardPage() {
     activeNodeId,
     loadBalancerEnabled,
     setLoadBalancerEnabled,
+    isInitialLoad,
+    isApiError,
   } = useFleet();
+
+  if (isInitialLoad) {
+    return (
+      <div className="bg-background max-w-7xl mx-auto space-y-4">
+        <Skeleton className="h-[92px] w-full rounded-xl glass-card opacity-50" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-[280px] w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-[280px] w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-[280px] w-full rounded-xl glass-card opacity-50" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-[420px] lg:col-span-2 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-[420px] w-full rounded-xl glass-card opacity-50" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isApiError && activeNodeId === "node-01") {
+    return (
+      <div className="bg-background max-w-7xl mx-auto space-y-4">
+        <div className="glass-card flex flex-col items-center justify-center p-12 text-center rounded-xl min-h-[60vh] border-crimson/20 bg-crimson/5">
+           <div className="w-16 h-16 rounded-full bg-crimson/10 flex items-center justify-center mb-6">
+             <AlertTriangle className="w-8 h-8 text-crimson" />
+           </div>
+           <h2 className="text-2xl font-semibold text-foreground mb-2">Node Unavailable</h2>
+           <p className="text-muted-foreground max-w-md">
+             Cannot connect to the Go backend for {activeNode.name}. Ensure the Docker container is running and port 8080 is accessible.
+           </p>
+        </div>
+      </div>
+    );
+  }
 
   // Convert FleetNode to SystemStatus-compatible shape for existing components
   const status: SystemStatus = {
@@ -57,9 +93,8 @@ export default function DashboardPage() {
     ssh_attempts: activeNode.network.sshAttempts,
     logs: activeNode.logs,
   };
-  const thermalDanger = activeNode.cpu.temp > 90;
+  const thermalDanger = activeNode.cpu.temp !== -1 && activeNode.cpu.temp > 90;
   const signal = getSignalQuality(activeNode.network.wifiSignal);
-
   return (
     <div className="bg-background">
       <AnimatePresence mode="wait">
@@ -120,7 +155,7 @@ export default function DashboardPage() {
                   <span
                     className={`font-mono text-sm font-medium ${thermalDanger ? "text-crimson" : "text-foreground"}`}
                   >
-                    {Math.round(activeNode.cpu.temp)}°C
+                    {activeNode.cpu.temp === -1 ? "N/A" : Math.round(activeNode.cpu.temp)}°C
                   </span>
                 </div>
                 <span

@@ -32,15 +32,20 @@ const UserProfileDropdown = () => {
           </Avatar>
           <div className="hidden md:block text-left">
             <p className="text-xs font-medium text-foreground">Jarvis Admin</p>
-            <p className="text-[10px] text-muted-foreground">Sovereign Fleet</p>
+            <p className="text-[10px] text-muted-foreground">admin@homelab</p>
           </div>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 glass-card-hover border-border">
+      <DropdownMenuContent
+        align="end"
+        className="w-56 glass-card-hover border-border"
+      >
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">Jarvis Admin</p>
-            <p className="text-xs leading-none text-muted-foreground">admin@homelab.local</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              admin@homelab.local
+            </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-border" />
@@ -48,7 +53,10 @@ const UserProfileDropdown = () => {
           <User className="h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
-        <DropdownMenuItem className="cursor-pointer gap-2 focus:bg-primary/10" onClick={() => router.push("/settings")}>
+        <DropdownMenuItem
+          className="cursor-pointer gap-2 focus:bg-primary/10"
+          onClick={() => router.push("/settings")}
+        >
           <Settings className="h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
@@ -57,7 +65,10 @@ const UserProfileDropdown = () => {
           <span>Security</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator className="bg-border" />
-        <DropdownMenuItem className="cursor-pointer gap-2 text-crimson focus:bg-crimson/10 focus:text-crimson" onClick={handleLogout}>
+        <DropdownMenuItem
+          className="cursor-pointer gap-2 text-crimson focus:bg-crimson/10 focus:text-crimson"
+          onClick={handleLogout}
+        >
           <LogOut className="h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>

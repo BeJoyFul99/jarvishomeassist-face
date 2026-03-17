@@ -6,10 +6,17 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, BellRing } from "lucide-react";
 import { toast } from "sonner";
+import { useNotificationStore } from "@/store/useNotificationStore";
 
 const container = {
   hidden: { opacity: 0 },
@@ -27,9 +34,16 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState(true);
   const [terminalLogs, setTerminalLogs] = useState(true);
   const [theme, setTheme] = useState("dark");
-
+  const {
+    browserNotificationsEnabled,
+    setBrowserNotificationsEnabled,
+    browserPermission,
+    requestBrowserPermission,
+  } = useNotificationStore();
   const handleSave = () => {
-    toast.success("Settings saved", { description: "Your configuration has been updated." });
+    toast.success("Settings saved", {
+      description: "Your configuration has been updated.",
+    });
   };
 
   return (
@@ -41,7 +55,9 @@ export default function SettingsPage() {
     >
       <motion.div variants={item}>
         <h1 className="text-xl font-semibold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">System configuration & preferences</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          System configuration & preferences
+        </p>
       </motion.div>
 
       {/* General */}
@@ -53,7 +69,9 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm text-foreground">Theme</Label>
-              <p className="text-xs text-muted-foreground">Dashboard appearance</p>
+              <p className="text-xs text-muted-foreground">
+                Dashboard appearance
+              </p>
             </div>
             <Select value={theme} onValueChange={setTheme}>
               <SelectTrigger className="w-36 bg-secondary border-border">
@@ -66,19 +84,61 @@ export default function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
-
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm text-foreground">
+                Browser push notifications
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {browserPermission === "granted"
+                  ? "Native alerts even when tab is unfocused"
+                  : browserPermission === "denied"
+                    ? "Blocked by browser — enable in site settings"
+                    : "Send native browser alerts for critical events"}
+              </p>
+            </div>
+            {browserPermission === "granted" ? (
+              <Switch
+                checked={browserNotificationsEnabled}
+                onCheckedChange={setBrowserNotificationsEnabled}
+              />
+            ) : browserPermission === "denied" ? (
+              <span className="text-[11px] font-mono text-crimson">
+                Blocked
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 border-border"
+                onClick={requestBrowserPermission}
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                Enable
+              </Button>
+            )}
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm text-foreground">Notifications</Label>
-              <p className="text-xs text-muted-foreground">Alert bell and sound effects</p>
+              <p className="text-xs text-muted-foreground">
+                Alert bell and sound effects
+              </p>
             </div>
-            <Switch checked={notifications} onCheckedChange={setNotifications} />
+            <Switch
+              checked={notifications}
+              onCheckedChange={setNotifications}
+            />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm text-foreground">Live terminal feed</Label>
-              <p className="text-xs text-muted-foreground">Show scrolling JSON logs on dashboard</p>
+              <Label className="text-sm text-foreground">
+                Live terminal feed
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Show scrolling JSON logs on dashboard
+              </p>
             </div>
             <Switch checked={terminalLogs} onCheckedChange={setTerminalLogs} />
           </div>
@@ -93,8 +153,12 @@ export default function SettingsPage() {
         <div className="grid gap-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm text-foreground">Polling interval</Label>
-              <p className="text-xs text-muted-foreground">How often to fetch /api/v1/status</p>
+              <Label className="text-sm text-foreground">
+                Polling interval
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                How often to fetch /api/v1/status
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Input
@@ -111,8 +175,12 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm text-foreground">CPU alert threshold</Label>
-              <p className="text-xs text-muted-foreground">Trigger alert when temperature exceeds</p>
+              <Label className="text-sm text-foreground">
+                CPU alert threshold
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Trigger alert when temperature exceeds
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Input
@@ -129,8 +197,12 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm text-foreground">Auto-sleep AI engine</Label>
-              <p className="text-xs text-muted-foreground">Suspend llama.cpp after 30min idle</p>
+              <Label className="text-sm text-foreground">
+                Auto-sleep AI engine
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Suspend llama.cpp after 30min idle
+              </p>
             </div>
             <Switch checked={autoSleep} onCheckedChange={setAutoSleep} />
           </div>
@@ -143,7 +215,10 @@ export default function SettingsPage() {
           <Save className="h-4 w-4" />
           Save changes
         </Button>
-        <Button variant="outline" className="gap-2 border-border text-muted-foreground hover:text-foreground">
+        <Button
+          variant="outline"
+          className="gap-2 border-border text-muted-foreground hover:text-foreground"
+        >
           <RotateCcw className="h-4 w-4" />
           Reset defaults
         </Button>

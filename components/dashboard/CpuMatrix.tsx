@@ -9,8 +9,22 @@ interface CpuMatrixProps {
 }
 
 const CpuMatrix = ({ cpuUsage, cpuTemp, history }: CpuMatrixProps) => {
-  const thermalState = cpuTemp > 95 ? "Throttled" : cpuTemp > 80 ? "Warning" : "Nominal";
-  const thermalColor = cpuTemp > 95 ? "text-crimson bg-crimson/10" : cpuTemp > 80 ? "text-amber bg-amber/10" : "text-emerald bg-emerald/10";
+  const thermalState =
+    cpuTemp == -1
+      ? "N/A"
+      : cpuTemp > 95
+        ? "Throttled"
+        : cpuTemp > 80
+          ? "Warning"
+          : "Nominal";
+  const thermalColor =
+    cpuTemp == -1
+      ? "text-gray-500 bg-gray-500/10"
+      : cpuTemp > 95
+        ? "text-crimson bg-crimson/10"
+        : cpuTemp > 80
+          ? "text-amber bg-amber/10"
+          : "text-emerald bg-emerald/10";
 
   return (
     <div className="glass-card-hover p-5">
@@ -21,7 +35,7 @@ const CpuMatrix = ({ cpuUsage, cpuTemp, history }: CpuMatrixProps) => {
         </div>
         <span className={`status-badge ${thermalColor}`}>
           <Thermometer className="w-3 h-3 inline mr-1" />
-          {cpuTemp.toFixed(0)}°C · {thermalState}
+          {cpuTemp == -1 ? "N/A" : cpuTemp.toFixed(2)}°C · {thermalState}
         </span>
       </div>
 
@@ -29,16 +43,21 @@ const CpuMatrix = ({ cpuUsage, cpuTemp, history }: CpuMatrixProps) => {
         {cpuUsage.map((usage, i) => (
           <div key={i}>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-muted-foreground font-mono">Core {i}</span>
-              <span className="text-xs font-mono text-foreground">{usage.toFixed(0)}%</span>
+              <span className="text-xs text-muted-foreground font-mono">
+                Core {i}
+              </span>
+              <span className="text-xs font-mono text-foreground">
+                {usage?.toFixed(0)}%
+              </span>
             </div>
             <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
               <motion.div
                 className="h-full rounded-full"
                 style={{
-                  background: usage > 80
-                    ? "linear-gradient(90deg, hsl(var(--amber)), hsl(var(--crimson)))"
-                    : "linear-gradient(90deg, hsl(var(--electric-blue)), hsl(var(--primary)))"
+                  background:
+                    usage > 80
+                      ? "linear-gradient(90deg, hsl(var(--amber)), hsl(var(--crimson)))"
+                      : "linear-gradient(90deg, hsl(var(--electric-blue)), hsl(var(--primary)))",
                 }}
                 animate={{ width: `${usage}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}

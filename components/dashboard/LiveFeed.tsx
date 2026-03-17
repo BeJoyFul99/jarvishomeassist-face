@@ -23,9 +23,18 @@ const LiveFeed = ({ logs }: LiveFeedProps) => {
 
   return (
     <div className="glass-card overflow-hidden">
+      <div className="px-4 py-2 border-b border-border flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
+        <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
+          Live Feed
+        </span>
+      </div>
       <div ref={scrollRef} className="px-4 py-3 max-h-28 overflow-y-auto">
         {logs.map((log, i) => (
-          <div key={i} className={`font-mono text-[11px] leading-5 ${colorize(log)} opacity-70`}>
+          <div
+            key={i}
+            className={`font-mono text-[11px] leading-5 ${colorize(log)} opacity-70`}
+          >
             {log}
           </div>
         ))}
