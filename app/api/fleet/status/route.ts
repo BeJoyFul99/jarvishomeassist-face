@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { type FleetNode } from "@/store/useFleetStore";
 
 export async function GET() {
+  const backendUrl = process.env.GO_BACKEND_URL || "http://localhost:5000";
   try {
-    const backendUrl = process.env.GO_BACKEND_URL || "http://localhost:8080";
     const res = await fetch(`${backendUrl}/api/v1/status`, {
       cache: "no-store",
       // Set a short timeout for the internal fetch
@@ -92,6 +92,7 @@ export async function GET() {
     };
     return NextResponse.json(mappedData);
   } catch (error) {
+    console.error("[URL Fetching]:", backendUrl);
     console.error("Failed to fetch from Go backend:", error);
     return NextResponse.json(
       { error: "Fleet backend unreachable" },
