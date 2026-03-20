@@ -12,7 +12,10 @@ import { Wifi, Shield, Cpu, HardDrive, Brain } from "lucide-react";
 import { useFleet } from "@/hooks/useFleet";
 import { useFleetStore } from "@/store/useFleetStore";
 import { useFleetNotifications } from "@/hooks/useFleetNotifications";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useRouteGuard } from "@/components/RouteGuard";
 import { formatStorage } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 function getSignalQuality(dbm: number) {
   if (dbm > -40) return { label: "Ultra Stable", color: "text-cyan" };
@@ -27,9 +30,22 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
   const { setIsMobile, initialize } = useSidebarStore();
   const { refresh: refreshFleet } = useFleetStore();
   const isMobile = useIsMobile();
+  const router = useRouter();
   useFleetNotifications();
+  useRouteGuard();
+
+  const { isAuthenticated } = useAuthStore();
+  const effectiveRole = useAuthStore((s) => s.effectiveRole());
+  const isAdmin = effectiveRole === "administrator";
 
   const signal = getSignalQuality(activeNode.network.wifiSignal);
+
+  // Redirect unauthenticated users to login
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, router]);
 
   React.useEffect(() => {
     initialize();
@@ -37,94 +53,105 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
     setIsMobile(isMobile);
   }, [isMobile, setIsMobile, initialize, refreshFleet]);
 
+  if (!isAuthenticated) return null;
+
   return (
     <TooltipProvider delayDuration={0}>
       <div className="group/sidebar-wrapper flex min-h-svh w-full has-[data-variant=inset]:bg-sidebar">
         <div className="min-h-screen flex w-full bg-background">
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
-            {/* Global Fleet Ticker */}
-            <div className="h-7 bg-card/80 border-b border-border overflow-hidden flex items-center shrink-0  ">
-              <div className="flex items-center gap-6 px-4 ticker-scroll whitespace-nowrap">
-                {[0, 1].map((dup) => (
-                  <div key={dup} className="flex items-center gap-6">
-                    <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
-                      <Cpu className="w-3 h-3 text-cyan" />
-                      NODES:{" "}
-                      <span className="text-cyan">
-                        {aggregated.onlineNodes}/{aggregated.totalNodes}
+            {/* Global Fleet Ticker — Admin only */}
+            {isAdmin && (
+              <div className="h-7 bg-card/80 border-b border-border overflow-hidden flex items-center shrink-0">
+                <div className="flex items-center gap-6 px-4 ticker-scroll whitespace-nowrap">
+                  {[0, 1].map((dup) => (
+                    <div key={dup} className="flex items-center gap-6">
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                        <Cpu className="w-3 h-3 text-cyan" />
+                        NODES:{" "}
+                        <span className="text-cyan">
+                          {aggregated.onlineNodes}/{aggregated.totalNodes}
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-border">│</span>
-                    <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
-                      <HardDrive className="w-3 h-3 text-primary" />
-                      TOTAL RAM:{" "}
-                      <span className="text-foreground">
-                        {formatStorage(aggregated.totalRam)}
+                      <span className="text-border">│</span>
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                        <HardDrive className="w-3 h-3 text-primary" />
+                        TOTAL RAM:{" "}
+                        <span className="text-foreground">
+                          {formatStorage(aggregated.totalRam)}
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-border">│</span>
-                    <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
-                      <HardDrive className="w-3 h-3 text-amber" />
-                      TOTAL STORAGE:{" "}
-                      <span className="text-foreground">
-                        {formatStorage(aggregated.totalStorage)}
+                      <span className="text-border">│</span>
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                        <HardDrive className="w-3 h-3 text-amber" />
+                        TOTAL STORAGE:{" "}
+                        <span className="text-foreground">
+                          {formatStorage(aggregated.totalStorage)}
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-border">│</span>
-                    <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
-                      <Brain className="w-3 h-3 text-magenta" />
-                      AI INSTANCES:{" "}
-                      <span
-                        className={
-                          aggregated.activeAiInstances > 0
-                            ? "text-magenta"
-                            : "text-muted-foreground"
-                        }
-                      >
-                        {aggregated.activeAiInstances}
+                      <span className="text-border">│</span>
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                        <Brain className="w-3 h-3 text-magenta" />
+                        AI INSTANCES:{" "}
+                        <span
+                          className={
+                            aggregated.activeAiInstances > 0
+                              ? "text-magenta"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {aggregated.activeAiInstances}
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-border">│</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">
-                      ACTIVE:{" "}
-                      <span className="text-cyan">{activeNode.name}</span> ·{" "}
-                      {activeNode.tailscaleIp}
-                    </span>
-                  </div>
-                ))}
+                      <span className="text-border">│</span>
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        ACTIVE:{" "}
+                        <span className="text-cyan">{activeNode.name}</span> ·{" "}
+                        {activeNode.tailscaleIp}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
             {/* Top Bar */}
             <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-md sticky top-0 z-30">
               <div className="flex items-center gap-3">
                 <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-                <div className="hidden sm:flex items-center gap-3 ml-2">
-                  <div className="flex items-center gap-1.5">
-                    <Wifi className={`w-3.5 h-3.5 ${signal.color}`} />
+                {/* Technical signal/network info — Admin only */}
+                {isAdmin && (
+                  <div className="hidden sm:flex items-center gap-3 ml-2">
+                    <div className="flex items-center gap-1.5">
+                      <Wifi className={`w-3.5 h-3.5 ${signal.color}`} />
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {Math.round(activeNode.network.wifiSignal)} dBm
+                      </span>
+                      <span
+                        className={`status-badge text-[10px] bg-secondary ${signal.color}`}
+                      >
+                        {signal.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-emerald" />
+                      <span className="status-badge text-[10px] bg-emerald/10 text-emerald">
+                        Tailscale
+                      </span>
+                    </div>
+                    <div className="h-4 w-px bg-border" />
                     <span className="font-mono text-[11px] text-muted-foreground">
-                      {Math.round(activeNode.network.wifiSignal)} dBm
-                    </span>
-                    <span
-                      className={`status-badge text-[10px] bg-secondary ${signal.color}`}
-                    >
-                      {signal.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-emerald" />
-                    <span className="status-badge text-[10px] bg-emerald/10 text-emerald">
-                      Tailscale
+                      {activeNode.name} ·{" "}
+                      <span className="text-primary">
+                        {activeNode.cpu.model
+                          .split(" ")
+                          .slice(0, 3)
+                          .join(" ")}
+                      </span>
                     </span>
                   </div>
-                  <div className="h-4 w-px bg-border" />
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {activeNode.name} ·{" "}
-                    <span className="text-primary">
-                      {activeNode.cpu.model.split(" ").slice(0, 3).join(" ")}
-                    </span>
-                  </span>
-                </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -132,6 +159,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
                 <UserProfileDropdown />
               </div>
             </header>
+
             {/* Page Content */}
             <main className="flex-1 overflow-y-auto bg-background/30 px-4 pt-4 pb-8">
               {children}

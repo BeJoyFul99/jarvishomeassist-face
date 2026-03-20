@@ -44,15 +44,15 @@ export default function DashboardPage() {
   if (isInitialLoad) {
     return (
       <div className="bg-background max-w-7xl mx-auto space-y-4">
-        <Skeleton className="h-[92px] w-full rounded-xl glass-card opacity-50" />
+        <Skeleton className="h-23 w-full rounded-xl glass-card opacity-50" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Skeleton className="h-[280px] w-full rounded-xl glass-card opacity-50" />
-          <Skeleton className="h-[280px] w-full rounded-xl glass-card opacity-50" />
-          <Skeleton className="h-[280px] w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-70 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-70 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-70 w-full rounded-xl glass-card opacity-50" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-[420px] lg:col-span-2 w-full rounded-xl glass-card opacity-50" />
-          <Skeleton className="h-[420px] w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-105 lg:col-span-2 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-105 w-full rounded-xl glass-card opacity-50" />
         </div>
       </div>
     );
@@ -67,7 +67,7 @@ export default function DashboardPage() {
            </div>
            <h2 className="text-2xl font-semibold text-foreground mb-2">Node Unavailable</h2>
            <p className="text-muted-foreground max-w-md">
-             Cannot connect to the Go backend for {activeNode.name}. Ensure the Docker container is running and port 8080 is accessible.
+             Cannot connect to the Go backend for {activeNode.name}. Ensure the Docker container is running and port {activeNode.port ?? "5000"} is accessible.
            </p>
         </div>
       </div>

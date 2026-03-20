@@ -7,6 +7,7 @@ export interface FleetNode {
   status: "online" | "offline" | "degraded";
   tailscaleIp: string;
   location: string;
+  port: number;
   cpu: { cores: number; model: string; usage: number[]; temp: number };
   ram: { total: number; used: number; wired: number };
   storage: { total: number; system: number; ai: number; available: number };
@@ -37,8 +38,8 @@ export interface FleetAgentLog {
 }
 
 // Helper for generating initial metrics
-const generateMetrics = (node: any, isInitial = false): FleetNode => {
-  const base = node as FleetNode;
+const generateMetrics = (node: FleetNode, isInitial = false): FleetNode => {
+  const base = node;
   return {
     ...base,
     cpu: {
@@ -72,7 +73,13 @@ const generateMetrics = (node: any, isInitial = false): FleetNode => {
     network: {
       ...base.network,
       wifiSignal: base.network?.wifiSignal || -50,
-      ports: base.network?.ports?.map((p: any) => ({ ...p, open: true })) || [],
+      ports:
+        base.network?.ports?.map(
+          (p: { port: number; service: string; open: boolean }) => ({
+            ...p,
+            open: true,
+          }),
+        ) || [],
       sshAttempts: base.network?.sshAttempts || [
         {
           ip: "192.168.1.42",
@@ -92,7 +99,7 @@ const generateMetrics = (node: any, isInitial = false): FleetNode => {
   };
 };
 
-const FLEET_NODES_TEMPLATE: any[] = [
+const FLEET_NODES_TEMPLATE: FleetNode[] = [
   {
     id: "node-01",
     name: "MBA-2020",
@@ -100,8 +107,17 @@ const FLEET_NODES_TEMPLATE: any[] = [
     status: "online",
     tailscaleIp: "100.64.0.1",
     location: "Office Desk",
-    cpu: { cores: 4, model: "Intel Core i7-1060NG7" },
-    ram: { total: 16 },
+    cpu: {
+      cores: 4,
+      model: "Intel Core i7-1060NG7",
+      usage: [],
+      temp: 0,
+    },
+    ram: {
+      total: 16,
+      used: 0,
+      wired: 0,
+    },
     storage: { total: 500, system: 45, ai: 128, available: 327 },
     ai: {
       status: "inferring",
@@ -130,14 +146,31 @@ const FLEET_NODES_TEMPLATE: any[] = [
           quantization: "Q8_0",
         },
       ],
+      tps: 0,
+      contextUsed: 0,
     },
     network: {
       wifiSignal: -38,
       ports: [
-        { port: 22, service: "SSH" },
-        { port: 8080, service: "API Gateway" },
+        {
+          port: 22,
+          service: "SSH",
+          open: false,
+        },
+        {
+          port: 8080,
+          service: "API Gateway",
+          open: false,
+        },
       ],
+      sshAttempts: [],
+      bandwidth: {
+        up: 0,
+        down: 0,
+      },
     },
+    port: 0,
+    logs: [],
   },
   {
     id: "node-02",
@@ -146,8 +179,17 @@ const FLEET_NODES_TEMPLATE: any[] = [
     status: "online",
     tailscaleIp: "100.64.0.2",
     location: "Server Rack",
-    cpu: { cores: 4, model: "ARM Cortex-A72 (BCM2711)" },
-    ram: { total: 8 },
+    cpu: {
+      cores: 4,
+      model: "ARM Cortex-A72 (BCM2711)",
+      usage: [],
+      temp: 0,
+    },
+    ram: {
+      total: 8,
+      used: 0,
+      wired: 0,
+    },
     storage: { total: 128, system: 12, ai: 32, available: 84 },
     ai: {
       status: "idle",
@@ -155,11 +197,26 @@ const FLEET_NODES_TEMPLATE: any[] = [
       contextMax: 2048,
       backend: "cpu",
       models: [],
+      tps: 0,
+      contextUsed: 0,
     },
     network: {
       wifiSignal: -55,
-      ports: [{ port: 22, service: "SSH" }],
+      ports: [
+        {
+          port: 22,
+          service: "SSH",
+          open: false,
+        },
+      ],
+      sshAttempts: [],
+      bandwidth: {
+        up: 0,
+        down: 0,
+      },
     },
+    port: 0,
+    logs: [],
   },
   {
     id: "node-03",
@@ -168,8 +225,17 @@ const FLEET_NODES_TEMPLATE: any[] = [
     status: "degraded",
     tailscaleIp: "100.64.0.3",
     location: "US-East (Virginia)",
-    cpu: { cores: 2, model: "AMD EPYC 7543P" },
-    ram: { total: 4 },
+    cpu: {
+      cores: 2,
+      model: "AMD EPYC 7543P",
+      usage: [],
+      temp: 0,
+    },
+    ram: {
+      total: 4,
+      used: 0,
+      wired: 0,
+    },
     storage: { total: 80, system: 15, ai: 0, available: 65 },
     ai: {
       status: "idle",
@@ -177,8 +243,26 @@ const FLEET_NODES_TEMPLATE: any[] = [
       contextMax: 0,
       backend: "cpu",
       models: [],
+      tps: 0,
+      contextUsed: 0,
     },
-    network: { wifiSignal: -20, ports: [{ port: 22, service: "SSH" }] },
+    network: {
+      wifiSignal: -20,
+      ports: [
+        {
+          port: 22,
+          service: "SSH",
+          open: false,
+        },
+      ],
+      sshAttempts: [],
+      bandwidth: {
+        up: 0,
+        down: 0,
+      },
+    },
+    port: 0,
+    logs: [],
   },
 ];
 
