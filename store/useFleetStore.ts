@@ -336,17 +336,20 @@ export const useFleetStore = create<FleetState>((set) => ({
 
 // Selectors for convenience
 export const useActiveNode = () => {
-  const { nodes, activeNodeId } = useFleetStore();
-  return nodes.find((n) => n.id === activeNodeId) || nodes[0];
+  const nodes = useFleetStore((s) => s.nodes);
+  const activeNodeId = useFleetStore((s) => s.activeNodeId);
+  const nodeArray = Array.isArray(nodes) ? nodes : [];
+  return nodeArray.find((n) => n.id === activeNodeId) || nodeArray[0] || generateMetrics(FLEET_NODES_TEMPLATE[0], true);
 };
 
 export const useAggregatedStats = () => {
-  const { nodes } = useFleetStore();
+  const nodes = useFleetStore((s) => s.nodes);
+  const nodeArray = Array.isArray(nodes) ? nodes : [];
   return {
-    totalRam: nodes.reduce((a, n) => a + n.ram.total, 0),
-    totalStorage: nodes.reduce((a, n) => a + n.storage.total, 0),
-    activeAiInstances: nodes.filter((n) => n.ai.status === "inferring").length,
-    onlineNodes: nodes.filter((n) => n.status !== "offline").length,
-    totalNodes: nodes.length,
+    totalRam: nodeArray.reduce((a, n) => a + (n.ram?.total || 0), 0),
+    totalStorage: nodeArray.reduce((a, n) => a + (n.storage?.total || 0), 0),
+    activeAiInstances: nodeArray.filter((n) => n.ai?.status === "inferring").length,
+    onlineNodes: nodeArray.filter((n) => n.status !== "offline").length,
+    totalNodes: nodeArray.length,
   };
 };

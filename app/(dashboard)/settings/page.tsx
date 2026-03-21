@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Save, RotateCcw, BellRing } from "lucide-react";
 import { toast } from "sonner";
 import { useNotificationStore } from "@/store/useNotificationStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const container = {
   hidden: { opacity: 0 },
@@ -28,6 +29,8 @@ const item = {
 };
 
 export default function SettingsPage() {
+  const effectiveRole = useAuthStore((s) => s.effectiveRole());
+  const isAdmin = effectiveRole === "administrator";
   const [pollingInterval, setPollingInterval] = useState("2");
   const [alertThreshold, setAlertThreshold] = useState("90");
   const [autoSleep, setAutoSleep] = useState(true);
@@ -131,83 +134,87 @@ export default function SettingsPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm text-foreground">
-                Live terminal feed
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Show scrolling JSON logs on dashboard
-              </p>
+          {isAdmin && (
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm text-foreground">
+                  Live terminal feed
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Show scrolling JSON logs on dashboard
+                </p>
+              </div>
+              <Switch checked={terminalLogs} onCheckedChange={setTerminalLogs} />
             </div>
-            <Switch checked={terminalLogs} onCheckedChange={setTerminalLogs} />
-          </div>
+          )}
         </div>
       </motion.div>
 
-      {/* Monitoring */}
-      <motion.div variants={item} className="glass-card p-5 space-y-5">
-        <h2 className="text-sm font-medium text-foreground">Monitoring</h2>
-        <Separator className="bg-border" />
+      {/* Monitoring — Admin only */}
+      {isAdmin && (
+        <motion.div variants={item} className="glass-card p-5 space-y-5">
+          <h2 className="text-sm font-medium text-foreground">Monitoring</h2>
+          <Separator className="bg-border" />
 
-        <div className="grid gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm text-foreground">
-                Polling interval
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                How often to fetch /api/v1/status
-              </p>
+          <div className="grid gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm text-foreground">
+                  Polling interval
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  How often to fetch /api/v1/status
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={pollingInterval}
+                  onChange={(e) => setPollingInterval(e.target.value)}
+                  className="w-20 bg-secondary border-border font-mono text-sm"
+                />
+                <span className="text-xs text-muted-foreground">sec</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={1}
-                max={30}
-                value={pollingInterval}
-                onChange={(e) => setPollingInterval(e.target.value)}
-                className="w-20 bg-secondary border-border font-mono text-sm"
-              />
-              <span className="text-xs text-muted-foreground">sec</span>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm text-foreground">
+                  CPU alert threshold
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Trigger alert when temperature exceeds
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={60}
+                  max={105}
+                  value={alertThreshold}
+                  onChange={(e) => setAlertThreshold(e.target.value)}
+                  className="w-20 bg-secondary border-border font-mono text-sm"
+                />
+                <span className="text-xs text-muted-foreground">°C</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm text-foreground">
+                  Auto-sleep AI engine
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Suspend llama.cpp after 30min idle
+                </p>
+              </div>
+              <Switch checked={autoSleep} onCheckedChange={setAutoSleep} />
             </div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm text-foreground">
-                CPU alert threshold
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Trigger alert when temperature exceeds
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={60}
-                max={105}
-                value={alertThreshold}
-                onChange={(e) => setAlertThreshold(e.target.value)}
-                className="w-20 bg-secondary border-border font-mono text-sm"
-              />
-              <span className="text-xs text-muted-foreground">°C</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm text-foreground">
-                Auto-sleep AI engine
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Suspend llama.cpp after 30min idle
-              </p>
-            </div>
-            <Switch checked={autoSleep} onCheckedChange={setAutoSleep} />
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Actions */}
       <motion.div variants={item} className="flex gap-3">

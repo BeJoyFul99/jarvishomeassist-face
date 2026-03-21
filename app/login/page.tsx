@@ -16,7 +16,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 
 const LoginPage = () => {
   const router = useRouter();
-  const { login, isAuthenticated, user } = useAuthStore();
+  const { login, isAuthenticated, user, _hasHydrated } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,12 +29,12 @@ const LoginPage = () => {
   const [nodesFound, setNodesFound] = useState(0);
   const [nodeSearching, setNodeSearching] = useState(true);
 
-  // If already authenticated, redirect based on role
+  // If already authenticated, redirect based on role (wait for hydration first)
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (_hasHydrated && isAuthenticated && user) {
       router.replace(user.role === "administrator" ? "/dashboard" : "/home");
     }
-  }, [isAuthenticated, user, router]);
+  }, [_hasHydrated, isAuthenticated, user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,8 +88,7 @@ const LoginPage = () => {
     setLoading(true);
     try {
       const body: Record<string, string> = { pin };
-      // include name in PIN login (guest uses name + PIN)
-      if (email) body.name = email;
+      if (email) body.email = email;
       const res = await fetch("/api/auth/pin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -287,15 +286,17 @@ const LoginPage = () => {
           ) : (
             <div className="space-y-1.5">
               <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-                Name
+                Email
               </label>
               <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
-                  type="text"
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Guest name"
-                  className="w-full bg-secondary border border-border rounded-lg pl-4 pr-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/50"
+                  placeholder="guest@homelab.local"
+                  className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/50"
+                  autoComplete="email"
                 />
               </div>
               <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider mt-2">
@@ -311,7 +312,7 @@ const LoginPage = () => {
                   placeholder="••••••"
                   className="w-full bg-secondary border border-border rounded-lg pl-4 pr-4 py-3 text-foreground text-sm text-center letter-spacing-wide focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/50"
                 />
-                <div className="text-xs text-muted-foreground mt-2 font-mono">This unlock method is for guest PINs only; sign in with your name and 6-digit PIN.</div>
+                <div className="text-xs text-muted-foreground mt-2 font-mono">Guest login — enter your email and 6-digit PIN.</div>
               </div>
             </div>
           )}

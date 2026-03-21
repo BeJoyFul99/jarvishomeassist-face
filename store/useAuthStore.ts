@@ -28,6 +28,8 @@ interface AuthState {
   isAuthenticated: boolean;
   /** Administrator previewing the family_member UI */
   viewingAsFamily: boolean;
+  /** True once Zustand has rehydrated from localStorage */
+  _hasHydrated: boolean;
 
   /** Effective role accounting for admin preview mode */
   effectiveRole: () => UserRole | null;
@@ -75,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       viewingAsFamily: false,
+      _hasHydrated: false,
 
       effectiveRole: () => {
         const { user, viewingAsFamily } = get();
@@ -139,6 +142,9 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         viewingAsFamily: state.viewingAsFamily,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) state._hasHydrated = true;
+      },
     },
   ),
 );

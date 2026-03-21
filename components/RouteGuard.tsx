@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuthStore, type UserRole } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
 
-/** Routes only accessible to administrators */
+/** Routes only accessible to administrators (no resource perm override) */
 const ADMIN_ONLY_ROUTES = [
   "/dashboard",
   "/analytics",
@@ -12,37 +12,48 @@ const ADMIN_ONLY_ROUTES = [
   "/network",
   "/devices",
   "/terminal",
-  "/users",
 ];
 
-/** Routes accessible to family_member (and admin previewing family) */
-const FAMILY_ROUTES = ["/home", "/home/devices", "/home/network", "/home/media"];
+/** Routes that any non-admin can access if they have the right resource perm */
+const PERM_GATED_ROUTES: Record<string, string> = {
+  "/users": "user:view",
+  "/home/devices": "smart_device:view",
+  "/home/network": "network:view",
+  "/home/media": "media:view",
+};
 
 /**
  * Client-side route guard.
  * - Unauthenticated → /login
- * - family_member on admin-only route → /home
- * - administrator on family route (without preview mode) is allowed (they can navigate freely)
+ * - non-admin on admin-only route → /home
+ * - non-admin on perm-gated route without the perm → /home
  */
 export function useRouteGuard() {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, _hasHydrated } = useAuthStore();
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
+  const hasPermission = useAuthStore((s) => s.hasPermission);
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
-      // The dashboard layout already handles redirect to /login,
-      // but this is a safety net for any edge case.
+    if (!_hasHydrated) return;
+    if (!isAuthenticated || !user) return;
+
+    // Admins can go anywhere
+    if (effectiveRole === "administrator") return;
+
+    // Check perm-gated routes first
+    const requiredPerm = PERM_GATED_ROUTES[pathname];
+    if (requiredPerm) {
+      if (!hasPermission(requiredPerm)) {
+        router.replace("/home");
+      }
       return;
     }
 
     // Non-admin users cannot access admin-only routes
-    if (
-      (effectiveRole === "family_member" || effectiveRole === "guest") &&
-      ADMIN_ONLY_ROUTES.some((r) => pathname === r)
-    ) {
+    if (ADMIN_ONLY_ROUTES.some((r) => pathname === r)) {
       router.replace("/home");
     }
-  }, [isAuthenticated, user, effectiveRole, pathname, router]);
+  }, [_hasHydrated, isAuthenticated, user, effectiveRole, hasPermission, pathname, router]);
 }

@@ -17,6 +17,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 const ProfilePage = () => {
   const { user } = useAuthStore();
   const isAdmin = user?.role === "administrator";
+  const isGuest = user?.role === "guest";
 
   const [profile, setProfile] = useState({
     displayName: user?.displayName || "User",
@@ -25,8 +26,8 @@ const ProfilePage = () => {
     hostname: "homelab",
     shell: "/bin/zsh",
     timezone: "UTC",
-    role: isAdmin ? "admin" : "member",
-    twoFactor: true,
+    role: isAdmin ? "admin" : isGuest ? "guest" : "member",
+    twoFactor: isAdmin,
     sshKeys: isAdmin ? 3 : 0,
     lastLogin: new Date().toLocaleString(),
     sessions: 2,
@@ -46,19 +47,30 @@ const ProfilePage = () => {
     setEditing(false);
   };
 
-  const stats = [
-    { label: "SSH Keys", value: profile.sshKeys, icon: Key, color: "text-cyan" },
-    { label: "Active Sessions", value: profile.sessions, icon: Globe, color: "text-emerald" },
-    { label: "Role", value: profile.role.toUpperCase(), icon: Shield, color: "text-magenta" },
-    { label: "Last Login", value: profile.lastLogin, icon: Clock, color: "text-amber" },
-  ];
+  const stats = isGuest
+    ? [
+        { label: "Role", value: "GUEST", icon: Shield, color: "text-amber-500" },
+        { label: "Last Login", value: profile.lastLogin, icon: Clock, color: "text-amber" },
+      ]
+    : [
+        { label: "SSH Keys", value: profile.sshKeys, icon: Key, color: "text-cyan" },
+        { label: "Active Sessions", value: profile.sessions, icon: Globe, color: "text-emerald" },
+        { label: "Role", value: profile.role.toUpperCase(), icon: Shield, color: "text-magenta" },
+        { label: "Last Login", value: profile.lastLogin, icon: Clock, color: "text-amber" },
+      ];
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <h1 className="text-xl font-semibold text-foreground">User Profile</h1>
+        <h1 className="text-xl font-semibold text-foreground">
+          {isGuest ? "My Profile" : "User Profile"}
+        </h1>
         <p className="text-sm text-muted-foreground font-mono">
-          {isAdmin ? `uid=0(root) · ${profile.hostname}` : `${profile.displayName} · Family Account`}
+          {isAdmin
+            ? `uid=0(root) · ${profile.hostname}`
+            : isGuest
+              ? `${profile.displayName} · Guest Account`
+              : `${profile.displayName} · Family Account`}
         </p>
       </motion.div>
 
@@ -79,13 +91,19 @@ const ProfilePage = () => {
               </div>
               <div className="flex-1 space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">{profile.displayName}</h2>
-                <p className="text-sm font-mono text-muted-foreground">{profile.username}@{profile.hostname}</p>
+                {!isGuest && (
+                  <p className="text-sm font-mono text-muted-foreground">{profile.username}@{profile.hostname}</p>
+                )}
                 <p className="text-xs text-muted-foreground">{profile.email}</p>
                 <div className="flex gap-2 pt-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-primary/10 text-primary border border-primary/20">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
+                    isGuest
+                      ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                      : "bg-primary/10 text-primary border-primary/20"
+                  }`}>
                     {profile.role.toUpperCase()}
                   </span>
-                  {profile.twoFactor && (
+                  {!isGuest && profile.twoFactor && (
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald/10 text-emerald border border-emerald/20">
                       2FA ENABLED
                     </span>
@@ -115,7 +133,7 @@ const ProfilePage = () => {
 
       {/* Stats Row */}
       <motion.div
-        className="grid grid-cols-2 md:grid-cols-4 gap-3"
+        className={`grid gap-3 ${isGuest ? "grid-cols-2" : "grid-cols-2 md:grid-cols-4"}`}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
@@ -138,12 +156,14 @@ const ProfilePage = () => {
         <Card className="border-border bg-card">
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-mono text-foreground flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" /> Account Details
+              <User className="h-4 w-4 text-primary" /> {isGuest ? "Guest Details" : "Account Details"}
             </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">Manage your identity and preferences</CardDescription>
+            <CardDescription className="text-xs text-muted-foreground">
+              {isGuest ? "Update your display name and timezone" : "Manage your identity and preferences"}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 ${isGuest ? "" : "md:grid-cols-2"} gap-4`}>
               <div className="space-y-2">
                 <Label className="text-xs font-mono text-muted-foreground">Display Name</Label>
                 <Input
@@ -153,56 +173,64 @@ const ProfilePage = () => {
                   className="font-mono text-sm bg-secondary border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono text-muted-foreground">Username</Label>
-                <Input
-                  value={draft.username}
-                  onChange={(e) => setDraft({ ...draft, username: e.target.value })}
-                  disabled={!editing}
-                  className="font-mono text-sm bg-secondary border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono text-muted-foreground flex items-center gap-1.5">
-                  <Mail className="h-3 w-3" /> Email
-                </Label>
-                <Input
-                  type="email"
-                  value={draft.email}
-                  onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                  disabled={!editing}
-                  className="font-mono text-sm bg-secondary border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono text-muted-foreground flex items-center gap-1.5">
-                  <Terminal className="h-3 w-3" /> Default Shell
-                </Label>
-                <Select
-                  value={draft.shell}
-                  onValueChange={(v) => setDraft({ ...draft, shell: v })}
-                  disabled={!editing}
-                >
-                  <SelectTrigger className="font-mono text-sm bg-secondary border-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="/bin/zsh">/bin/zsh</SelectItem>
-                    <SelectItem value="/bin/bash">/bin/bash</SelectItem>
-                    <SelectItem value="/bin/fish">/bin/fish</SelectItem>
-                    <SelectItem value="/bin/sh">/bin/sh</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-mono text-muted-foreground">Hostname</Label>
-                <Input
-                  value={draft.hostname}
-                  onChange={(e) => setDraft({ ...draft, hostname: e.target.value })}
-                  disabled={!editing}
-                  className="font-mono text-sm bg-secondary border-border"
-                />
-              </div>
+              {!isGuest && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono text-muted-foreground">Username</Label>
+                  <Input
+                    value={draft.username}
+                    onChange={(e) => setDraft({ ...draft, username: e.target.value })}
+                    disabled={!editing}
+                    className="font-mono text-sm bg-secondary border-border"
+                  />
+                </div>
+              )}
+              {!isGuest && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono text-muted-foreground flex items-center gap-1.5">
+                    <Mail className="h-3 w-3" /> Email
+                  </Label>
+                  <Input
+                    type="email"
+                    value={draft.email}
+                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                    disabled={!editing}
+                    className="font-mono text-sm bg-secondary border-border"
+                  />
+                </div>
+              )}
+              {!isGuest && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono text-muted-foreground flex items-center gap-1.5">
+                    <Terminal className="h-3 w-3" /> Default Shell
+                  </Label>
+                  <Select
+                    value={draft.shell}
+                    onValueChange={(v) => setDraft({ ...draft, shell: v })}
+                    disabled={!editing}
+                  >
+                    <SelectTrigger className="font-mono text-sm bg-secondary border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="/bin/zsh">/bin/zsh</SelectItem>
+                      <SelectItem value="/bin/bash">/bin/bash</SelectItem>
+                      <SelectItem value="/bin/fish">/bin/fish</SelectItem>
+                      <SelectItem value="/bin/sh">/bin/sh</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {!isGuest && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-mono text-muted-foreground">Hostname</Label>
+                  <Input
+                    value={draft.hostname}
+                    onChange={(e) => setDraft({ ...draft, hostname: e.target.value })}
+                    disabled={!editing}
+                    className="font-mono text-sm bg-secondary border-border"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-xs font-mono text-muted-foreground">Timezone</Label>
                 <Select
@@ -219,50 +247,56 @@ const ProfilePage = () => {
                     <SelectItem value="America/Los_Angeles">America/Los_Angeles</SelectItem>
                     <SelectItem value="Europe/London">Europe/London</SelectItem>
                     <SelectItem value="Asia/Tokyo">Asia/Tokyo</SelectItem>
+                    <SelectItem value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur</SelectItem>
+                    <SelectItem value="Asia/Singapore">Asia/Singapore</SelectItem>
+                    <SelectItem value="Australia/Sydney">Australia/Sydney</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <Separator className="bg-border" />
-
-            {/* Security Section */}
-            <div>
-              <h3 className="text-sm font-mono text-foreground flex items-center gap-2 mb-4">
-                <Shield className="h-4 w-4 text-magenta" /> Security
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-foreground">Two-Factor Authentication</p>
-                    <p className="text-xs text-muted-foreground font-mono">TOTP via authenticator app</p>
+            {/* Security Section — hidden for guests */}
+            {!isGuest && (
+              <>
+                <Separator className="bg-border" />
+                <div>
+                  <h3 className="text-sm font-mono text-foreground flex items-center gap-2 mb-4">
+                    <Shield className="h-4 w-4 text-magenta" /> Security
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-foreground">Two-Factor Authentication</p>
+                        <p className="text-xs text-muted-foreground font-mono">TOTP via authenticator app</p>
+                      </div>
+                      <Switch
+                        checked={draft.twoFactor}
+                        onCheckedChange={(v) => setDraft({ ...draft, twoFactor: v })}
+                        disabled={!editing}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-foreground">SSH Keys</p>
+                        <p className="text-xs text-muted-foreground font-mono">{profile.sshKeys} keys registered</p>
+                      </div>
+                      <Button variant="outline" size="sm" className="font-mono text-xs" disabled={!editing}>
+                        <Key className="h-3 w-3 mr-1" /> Manage Keys
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-foreground">Change Password</p>
+                        <p className="text-xs text-muted-foreground font-mono">Last changed 14 days ago</p>
+                      </div>
+                      <Button variant="outline" size="sm" className="font-mono text-xs" disabled={!editing}>
+                        Update
+                      </Button>
+                    </div>
                   </div>
-                  <Switch
-                    checked={draft.twoFactor}
-                    onCheckedChange={(v) => setDraft({ ...draft, twoFactor: v })}
-                    disabled={!editing}
-                  />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-foreground">SSH Keys</p>
-                    <p className="text-xs text-muted-foreground font-mono">{profile.sshKeys} keys registered</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="font-mono text-xs" disabled={!editing}>
-                    <Key className="h-3 w-3 mr-1" /> Manage Keys
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-foreground">Change Password</p>
-                    <p className="text-xs text-muted-foreground font-mono">Last changed 14 days ago</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="font-mono text-xs" disabled={!editing}>
-                    Update
-                  </Button>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </motion.div>

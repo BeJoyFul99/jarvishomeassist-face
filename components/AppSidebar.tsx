@@ -65,12 +65,12 @@ const adminConfigItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
-// Family member navigation
+// Family member navigation (perm = required permission, undefined = always visible)
 const memberItems = [
-  { title: "Home", url: "/home", icon: Home },
-  { title: "Smart Home", url: "/home/devices", icon: Lightbulb },
-  { title: "Network", url: "/home/network", icon: Wifi },
-  { title: "Media & Files", url: "/home/media", icon: Film },
+  { title: "Home", url: "/home", icon: Home, perm: undefined },
+  { title: "Smart Home", url: "/home/devices", icon: Lightbulb, perm: "smart_device:view" },
+  { title: "Network", url: "/home/network", icon: Wifi, perm: "network:view" },
+  { title: "Media & Files", url: "/home/media", icon: Film, perm: "media:view" },
 ];
 
 const memberConfigItems = [
@@ -97,8 +97,10 @@ export function AppSidebar() {
   const currentPath = usePathname();
   const { activeNode, nodes, setActiveNodeId } = useFleet();
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
+  const hasPermission = useAuthStore((s) => s.hasPermission);
   const isAdmin = effectiveRole === "administrator";
   const isGuest = effectiveRole === "guest";
+  const canViewUsers = hasPermission("user:view");
   const isActive = (path: string) => currentPath === path;
   const ActiveNodeIcon = nodeIcons[activeNode?.type || "server"];
   const onlineCount = nodes.filter((n) => n.status === "online").length;
@@ -264,8 +266,13 @@ export function AppSidebar() {
           </>
         ) : (
           <>
-            {renderNavGroup("Home", memberItems)}
-            {renderNavGroup("Account", memberConfigItems)}
+            {renderNavGroup("Home", memberItems.filter((i) => !i.perm || hasPermission(i.perm)))}
+            {renderNavGroup("Account", [
+              ...memberConfigItems,
+              ...(canViewUsers
+                ? [{ title: "User Management", url: "/users", icon: Users }]
+                : []),
+            ])}
           </>
         )}
       </SidebarContent>

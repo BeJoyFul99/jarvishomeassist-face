@@ -14,6 +14,7 @@ import { useFleetStore } from "@/store/useFleetStore";
 import { useFleetNotifications } from "@/hooks/useFleetNotifications";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouteGuard } from "@/components/RouteGuard";
+import { useUserEvents } from "@/hooks/useUserEvents";
 import { formatStorage } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
@@ -33,19 +34,20 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   useFleetNotifications();
   useRouteGuard();
+  useUserEvents();
 
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
   const isAdmin = effectiveRole === "administrator";
 
   const signal = getSignalQuality(activeNode.network.wifiSignal);
 
-  // Redirect unauthenticated users to login
+  // Wait for Zustand to rehydrate from localStorage before redirecting
   React.useEffect(() => {
-    if (!isAuthenticated) {
+    if (_hasHydrated && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [_hasHydrated, isAuthenticated, router]);
 
   React.useEffect(() => {
     initialize();
@@ -53,7 +55,8 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
     setIsMobile(isMobile);
   }, [isMobile, setIsMobile, initialize, refreshFleet]);
 
-  if (!isAuthenticated) return null;
+  // Show nothing until hydration is complete — prevents login flash
+  if (!_hasHydrated || !isAuthenticated) return null;
 
   return (
     <TooltipProvider delayDuration={0}>

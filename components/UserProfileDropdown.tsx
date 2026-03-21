@@ -54,7 +54,9 @@ const UserProfileDropdown = () => {
             <p className="text-[10px] text-muted-foreground font-mono">
               {effectiveRole === "administrator"
                 ? "root@homelab"
-                : "family member"}
+                : effectiveRole === "guest"
+                  ? "guest"
+                  : "family member"}
             </p>
           </div>
           <ChevronDown className="hidden md:block h-3 w-3 text-muted-foreground" />
@@ -71,7 +73,7 @@ const UserProfileDropdown = () => {
               {user?.email || "user@homelab.local"}
             </p>
             <p className="text-[10px] leading-none text-muted-foreground font-mono mt-1">
-              Role: {user?.role === "administrator" ? "Administrator" : "Family Member"}
+              Role: {user?.role === "administrator" ? "Administrator" : user?.role === "guest" ? "Guest" : "Family Member"}
               {viewingAsFamily && " (previewing Home)"}
             </p>
           </div>
