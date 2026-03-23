@@ -77,8 +77,23 @@ interface UserItem {
   access_count: number;
   is_locked: boolean;
   last_login_at: string | null;
+  created_by_id: number;
+  created_by_name: string;
   created_at: string;
   deleted_at: string | null;
+}
+
+interface AuditLogEntry {
+  id: number;
+  action: string;
+  actor_id: number;
+  actor_email: string;
+  actor_name: string;
+  target_id: number;
+  target_email: string;
+  target_name: string;
+  details: string;
+  created_at: string;
 }
 
 interface PermCategory {
@@ -110,6 +125,19 @@ const permLabels: Record<string, string> = {
   "user:regenerate_pin": "Regenerate PIN",
   "user:delete_guest": "Delete Guests",
   "user:lock": "Lock / Revoke",
+};
+
+const auditActionLabels: Record<string, string> = {
+  "user:created": "Created user",
+  "user:updated": "Updated user",
+  "user:deleted": "Deleted user",
+  "user:restored": "Restored user",
+  "user:locked": "Locked user",
+  "user:unlocked": "Unlocked user",
+  "user:tokens_revoked": "Revoked tokens",
+  "user:pin_regenerated": "Regenerated PIN",
+  "user:password_reset_requested": "Requested password reset",
+  "user:permissions_changed": "Changed permissions",
 };
 
 const categoryIcons: Record<string, typeof Eye> = {
@@ -435,6 +463,10 @@ const UserManagementPage = () => {
     });
   };
 
+  // Audit logs for expanded user
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
   // Filter
   const [roleFilter, setRoleFilter] = useState<string>("all");
 
@@ -471,6 +503,33 @@ const UserManagementPage = () => {
       setLoading(false);
     }
   }, [token]);
+
+  // Fetch audit logs for a specific user
+  const fetchAuditLogs = useCallback(async (targetId: number) => {
+    setAuditLoading(true);
+    try {
+      const res = await fetch(`/api/admin/audit-logs?target_id=${targetId}&limit=20`, {
+        headers: authHeaders(token),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAuditLogs(data.logs || []);
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [token]);
+
+  // Load audit logs when expanding a user
+  useEffect(() => {
+    if (expandedUser) {
+      fetchAuditLogs(expandedUser);
+    } else {
+      setAuditLogs([]);
+    }
+  }, [expandedUser, fetchAuditLogs]);
 
   // SSE: auto-refresh user list on real-time events
   useUserEvents(fetchUsers);
@@ -1149,6 +1208,9 @@ const UserManagementPage = () => {
                       <span>Permissions: <span className="text-foreground font-medium">{activePermsCount(user)}</span></span>
                       <span>Accesses: <span className="text-foreground font-medium">{user.access_count}</span></span>
                       <span>Last login: {user.last_login_at ? new Date(user.last_login_at).toLocaleString() : "Never"}</span>
+                      {user.created_by_name && (
+                        <span>Created by: <span className="text-foreground font-medium">{user.created_by_name}</span></span>
+                      )}
                       {user.perm_expires_at && (
                         <span className={expired ? "text-crimson" : ""}>
                           Expires: {new Date(user.perm_expires_at).toLocaleString()}
@@ -1258,6 +1320,34 @@ const UserManagementPage = () => {
                               </div>
                             );
                           })}
+                        </div>
+
+                        {/* Activity Log */}
+                        <div className="mt-4 pt-3 border-t border-border">
+                          <span className="text-[10px] font-mono font-medium text-foreground uppercase tracking-wider">
+                            Activity Log
+                          </span>
+                          {auditLoading ? (
+                            <p className="text-[11px] text-muted-foreground mt-2">Loading...</p>
+                          ) : auditLogs.length === 0 ? (
+                            <p className="text-[11px] text-muted-foreground mt-2">No activity recorded yet.</p>
+                          ) : (
+                            <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                              {auditLogs.map((log) => (
+                                <div key={log.id} className="flex items-start gap-2 text-[11px]">
+                                  <span className="text-muted-foreground whitespace-nowrap shrink-0">
+                                    {new Date(log.created_at).toLocaleString()}
+                                  </span>
+                                  <span className="text-foreground">
+                                    <span className="font-medium">{log.actor_name || log.actor_email}</span>
+                                    {" "}
+                                    <span className="text-muted-foreground">{auditActionLabels[log.action] || log.action}</span>
+                                    {log.details && <span className="text-muted-foreground/70"> ({log.details})</span>}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </motion.div>

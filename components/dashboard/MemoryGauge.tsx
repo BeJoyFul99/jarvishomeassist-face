@@ -9,8 +9,8 @@ interface MemoryGaugeProps {
 }
 
 const MemoryGauge = ({ usedGb, wiredGb, totalGb }: MemoryGaugeProps) => {
-  const usedPct = (usedGb / totalGb) * 100;
-  const wiredPct = (wiredGb / totalGb) * 100;
+  const usedPct = totalGb > 0 ? (usedGb / totalGb) * 100 : 0;
+  const wiredPct = totalGb > 0 ? (wiredGb / totalGb) * 100 : 0;
   const pressure =
     usedPct > 85 ? "Critical" : usedPct > 70 ? "Warning" : "Normal";
   const pressureColor =
@@ -61,6 +61,7 @@ const MemoryGauge = ({ usedGb, wiredGb, totalGb }: MemoryGaugeProps) => {
               strokeWidth="8"
               strokeLinecap="round"
               strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
               animate={{ strokeDashoffset: circumference - usedDash }}
               transition={{ duration: 1, ease: "easeOut" }}
             />

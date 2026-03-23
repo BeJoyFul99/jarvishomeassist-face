@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 const BACKEND_URL = process.env.GO_BACKEND_URL || "http://localhost:5000";
 
 // GET /api/events → streams SSE from Go backend GET /api/v1/events
+// Uses a ReadableStream pipe to keep the connection alive properly.
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader) {
@@ -12,24 +13,48 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const controller = new AbortController();
+  // Abort upstream when client disconnects
+  request.signal.addEventListener("abort", () => controller.abort());
+
   try {
-    const res = await fetch(`${BACKEND_URL}/api/v1/events`, {
+    const upstream = await fetch(`${BACKEND_URL}/api/v1/events`, {
       headers: {
         Authorization: authHeader,
         Accept: "text/event-stream",
       },
-      signal: request.signal,
+      signal: controller.signal,
     });
 
-    if (!res.ok) {
+    if (!upstream.ok || !upstream.body) {
       return new Response(JSON.stringify({ error: "backend_error" }), {
-        status: res.status,
+        status: upstream.status,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Stream the SSE response through to the client
-    return new Response(res.body, {
+    // Pipe the upstream body through a new ReadableStream to keep it alive
+    const upstreamReader = upstream.body.getReader();
+    const stream = new ReadableStream({
+      async pull(streamController) {
+        try {
+          const { done, value } = await upstreamReader.read();
+          if (done) {
+            streamController.close();
+            return;
+          }
+          streamController.enqueue(value);
+        } catch {
+          streamController.close();
+        }
+      },
+      cancel() {
+        upstreamReader.cancel();
+        controller.abort();
+      },
+    });
+
+    return new Response(stream, {
       status: 200,
       headers: {
         "Content-Type": "text/event-stream",

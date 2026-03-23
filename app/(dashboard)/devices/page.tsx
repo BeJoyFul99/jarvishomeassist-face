@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home, Lightbulb, Thermometer, Camera, Speaker, WifiOff,
   Laptop, Smartphone, HardDrive, Monitor,
   Signal, Router, Settings as SettingsIcon, Plus, Trash2, Pencil, X, Check,
-  ToggleLeft, ToggleRight
+  ToggleLeft, ToggleRight, Search, Loader2, RefreshCw,
 } from "lucide-react";
-import { useSystemStatus } from "@/hooks/useSystemStatus";
+import { useAuthStore } from "@/store/useAuthStore";
 import {
   Dialog,
   DialogContent,
@@ -36,13 +36,18 @@ const item = {
 };
 
 interface SmartDevice {
-  id: string;
+  id: number;
   name: string;
   room: string;
-  icon: any;
-  type: "light" | "thermostat" | "camera" | "speaker" | "sensor";
+  device_type: string;
+  brand: string;
+  model: string;
+  ip: string;
+  mac: string;
+  firmware_ver: string;
   online: boolean;
   state: Record<string, any>;
+  metadata: Record<string, any>;
 }
 
 interface NetworkDevice {
@@ -75,25 +80,6 @@ const NETWORK_TYPE_ICONS: Record<string, any> = {
   "Access Point": Router,
 };
 
-const SMART_DEFAULT_STATES: Record<string, Record<string, any>> = {
-  light: { on: false, brightness: 80 },
-  thermostat: { temp: 21, target: 22, mode: "auto" },
-  camera: { recording: false, motion: false },
-  speaker: { playing: false, volume: 50 },
-  sensor: { open: false, temp: 20 },
-};
-
-const INITIAL_SMART_DEVICES: SmartDevice[] = [
-  { id: "1", name: "Living Room Lights", room: "Living Room", icon: Lightbulb, type: "light", online: true, state: { on: true, brightness: 80 } },
-  { id: "2", name: "Bedroom Lamp", room: "Bedroom", icon: Lightbulb, type: "light", online: true, state: { on: false, brightness: 50 } },
-  { id: "3", name: "Kitchen Lights", room: "Kitchen", icon: Lightbulb, type: "light", online: true, state: { on: true, brightness: 100 } },
-  { id: "4", name: "Thermostat", room: "Hallway", icon: Thermometer, type: "thermostat", online: true, state: { temp: 22, target: 23, mode: "auto" } },
-  { id: "5", name: "Front Door Cam", room: "Entrance", icon: Camera, type: "camera", online: true, state: { recording: true, motion: false } },
-  { id: "6", name: "Backyard Cam", room: "Outdoor", icon: Camera, type: "camera", online: false, state: { recording: false, motion: false } },
-  { id: "7", name: "Office Speaker", room: "Office", icon: Speaker, type: "speaker", online: true, state: { playing: false, volume: 45 } },
-  { id: "8", name: "Garage Sensor", room: "Garage", icon: Signal, type: "sensor", online: true, state: { open: false, temp: 18 } },
-];
-
 const INITIAL_NETWORK_DEVICES: NetworkDevice[] = [
   { id: "n1", name: "MacBook Pro", ip: "192.168.1.42", mac: "A4:83:E7:2B:1C:9F", icon: Laptop, type: "Computer", online: true, lastSeen: "Now", bandwidth: "12.4 MB/s" },
   { id: "n2", name: "iPhone 15", ip: "192.168.1.55", mac: "B2:9A:F1:4C:8D:3E", icon: Smartphone, type: "Phone", online: true, lastSeen: "Now", bandwidth: "2.1 MB/s" },
@@ -105,16 +91,38 @@ const INITIAL_NETWORK_DEVICES: NetworkDevice[] = [
 ];
 
 export default function DevicesPage() {
-  const { status } = useSystemStatus();
-  const [devices, setDevices] = useState(INITIAL_SMART_DEVICES);
+  const token = useAuthStore((s) => s.token);
+  const [devices, setDevices] = useState<SmartDevice[]>([]);
+  const [loading, setLoading] = useState(true);
   const [networkDevices, setNetworkDevices] = useState(INITIAL_NETWORK_DEVICES);
   const [tab, setTab] = useState<"smart" | "network">("smart");
   const [manageMode, setManageMode] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [deviceErrors, setDeviceErrors] = useState<Record<number, string>>({});
+  const [busyDevices, setBusyDevices] = useState<Set<number>>(new Set());
+  const [discoverResult, setDiscoverResult] = useState<{
+    discovered: { ip: string; registered: boolean; mac?: string; module?: string }[];
+    count: number;
+  } | null>(null);
+  const [discoverDialogOpen, setDiscoverDialogOpen] = useState(false);
+
+  const showDeviceError = useCallback((deviceId: number, message: string) => {
+    setDeviceErrors((prev) => ({ ...prev, [deviceId]: message }));
+    setTimeout(() => {
+      setDeviceErrors((prev) => {
+        const next = { ...prev };
+        delete next[deviceId];
+        return next;
+      });
+    }, 4000);
+  }, []);
 
   // Smart device dialog state
   const [smartDialogOpen, setSmartDialogOpen] = useState(false);
-  const [editingSmartDevice, setEditingSmartDevice] = useState<SmartDevice | null>(null);
-  const [smartForm, setSmartForm] = useState({ name: "", room: "", type: "light" as SmartDevice["type"] });
+  const [editingDevice, setEditingDevice] = useState<SmartDevice | null>(null);
+  const [smartForm, setSmartForm] = useState({
+    name: "", room: "", device_type: "light", brand: "wiz", model: "", ip: "", mac: "",
+  });
 
   // Network device dialog state
   const [netDialogOpen, setNetDialogOpen] = useState(false);
@@ -122,60 +130,184 @@ export default function DevicesPage() {
   const [netForm, setNetForm] = useState({ name: "", ip: "", mac: "", type: "Computer" });
 
   // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; kind: "smart" | "network" } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number | string; kind: "smart" | "network" } | null>(null);
 
-  const toggleDevice = (id: string) => {
+  const authHeaders = useCallback(() => {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) h["Authorization"] = `Bearer ${token}`;
+    return h;
+  }, [token]);
+
+  // Fetch devices from API
+  const fetchDevices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/devices", { headers: authHeaders() });
+      if (res.ok) {
+        const data: SmartDevice[] = await res.json();
+        setDevices(data);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [authHeaders]);
+
+  useEffect(() => {
+    fetchDevices();
+  }, [fetchDevices]);
+
+  const toggleDevice = async (device: SmartDevice) => {
+    const action = device.state?.on ? "off" : "on";
+    const prevOn = device.state?.on;
+    // Optimistic update
     setDevices((prev) =>
       prev.map((d) =>
-        d.id === id ? { ...d, state: { ...d.state, on: !d.state.on } } : d
+        d.id === device.id ? { ...d, state: { ...d.state, on: !prevOn } } : d
       )
     );
+    setBusyDevices((prev) => new Set(prev).add(device.id));
+    try {
+      const res = await fetch(`/api/devices/${device.id}/control`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDevices((prev) =>
+          prev.map((d) => (d.id === data.device.id ? data.device : d))
+        );
+      } else {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        showDeviceError(device.id, err.detail || err.error || "Device unreachable");
+        setDevices((prev) =>
+          prev.map((d) =>
+            d.id === device.id ? { ...d, online: false, state: { ...d.state, on: prevOn } } : d
+          )
+        );
+      }
+    } catch {
+      showDeviceError(device.id, "Network error — could not reach device");
+      setDevices((prev) =>
+        prev.map((d) =>
+          d.id === device.id ? { ...d, online: false, state: { ...d.state, on: prevOn } } : d
+        )
+      );
+    } finally {
+      setBusyDevices((prev) => {
+        const next = new Set(prev);
+        next.delete(device.id);
+        return next;
+      });
+    }
+  };
+
+  const pollDeviceState = async (id: number) => {
+    try {
+      const res = await fetch(`/api/devices/${id}/state`, { headers: authHeaders() });
+      if (res.ok) {
+        const data: SmartDevice = await res.json();
+        setDevices((prev) => prev.map((d) => (d.id === data.id ? data : d)));
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  // Discover WiZ bulbs on network
+  const discoverDevices = async () => {
+    setDiscovering(true);
+    setDiscoverResult(null);
+    try {
+      const res = await fetch("/api/admin/devices/discover", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDiscoverResult(data);
+        setDiscoverDialogOpen(true);
+        if (data.discovered?.length > 0) {
+          await fetchDevices();
+        }
+      } else {
+        setDiscoverResult({ discovered: [], count: 0 });
+        setDiscoverDialogOpen(true);
+      }
+    } catch {
+      setDiscoverResult({ discovered: [], count: 0 });
+      setDiscoverDialogOpen(true);
+    } finally {
+      setDiscovering(false);
+    }
   };
 
   // Smart device CRUD
   const openAddSmart = () => {
-    setEditingSmartDevice(null);
-    setSmartForm({ name: "", room: "", type: "light" });
+    setEditingDevice(null);
+    setSmartForm({ name: "", room: "", device_type: "light", brand: "wiz", model: "", ip: "", mac: "" });
     setSmartDialogOpen(true);
   };
 
   const openEditSmart = (device: SmartDevice) => {
-    setEditingSmartDevice(device);
-    setSmartForm({ name: device.name, room: device.room, type: device.type });
+    setEditingDevice(device);
+    setSmartForm({
+      name: device.name,
+      room: device.room,
+      device_type: device.device_type,
+      brand: device.brand,
+      model: device.model || "",
+      ip: device.ip,
+      mac: device.mac || "",
+    });
     setSmartDialogOpen(true);
   };
 
-  const saveSmart = () => {
-    if (!smartForm.name.trim()) return;
-    if (editingSmartDevice) {
-      setDevices((prev) =>
-        prev.map((d) =>
-          d.id === editingSmartDevice.id
-            ? { ...d, name: smartForm.name, room: smartForm.room, type: smartForm.type, icon: SMART_TYPE_ICONS[smartForm.type] }
-            : d
-        )
-      );
-    } else {
-      const newDevice: SmartDevice = {
-        id: `smart-${Date.now()}`,
-        name: smartForm.name,
-        room: smartForm.room,
-        type: smartForm.type,
-        icon: SMART_TYPE_ICONS[smartForm.type],
-        online: true,
-        state: { ...SMART_DEFAULT_STATES[smartForm.type] },
-      };
-      setDevices((prev) => [...prev, newDevice]);
+  const saveSmart = async () => {
+    if (!smartForm.name.trim() || !smartForm.ip.trim()) return;
+    try {
+      if (editingDevice) {
+        const res = await fetch(`/api/admin/devices/${editingDevice.id}`, {
+          method: "PATCH",
+          headers: authHeaders(),
+          body: JSON.stringify(smartForm),
+        });
+        if (res.ok) {
+          const updated: SmartDevice = await res.json();
+          setDevices((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+        }
+      } else {
+        const res = await fetch("/api/admin/devices", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(smartForm),
+        });
+        if (res.ok) {
+          const created: SmartDevice = await res.json();
+          setDevices((prev) => [...prev, created]);
+        }
+      }
+    } catch {
+      // silent
     }
     setSmartDialogOpen(false);
   };
 
-  const deleteSmart = (id: string) => {
-    setDevices((prev) => prev.filter((d) => d.id !== id));
+  const deleteSmart = async (id: number) => {
+    try {
+      await fetch(`/api/admin/devices/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      setDevices((prev) => prev.filter((d) => d.id !== id));
+    } catch {
+      // silent
+    }
     setDeleteTarget(null);
   };
 
-  // Network device CRUD
+  // Network device CRUD (still local state)
   const openAddNet = () => {
     setEditingNetDevice(null);
     setNetForm({ name: "", ip: "", mac: "", type: "Computer" });
@@ -238,13 +370,40 @@ export default function DevicesPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {manageMode && (
+            {manageMode && tab === "smart" && (
+              <>
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={discoverDevices}
+                  disabled={discovering}
+                  className="flex items-center gap-2 rounded-lg bg-cyan/10 border border-cyan/20 px-4 py-2 text-sm font-medium text-cyan transition-colors hover:bg-cyan/20 disabled:opacity-50"
+                >
+                  {discovering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  Discover WiZ
+                </motion.button>
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={openAddSmart}
+                  className="flex items-center gap-2 rounded-lg bg-emerald/10 border border-emerald/20 px-4 py-2 text-sm font-medium text-emerald transition-colors hover:bg-emerald/20"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Device
+                </motion.button>
+              </>
+            )}
+            {manageMode && tab === "network" && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => tab === "smart" ? openAddSmart() : openAddNet()}
+                onClick={openAddNet}
                 className="flex items-center gap-2 rounded-lg bg-emerald/10 border border-emerald/20 px-4 py-2 text-sm font-medium text-emerald transition-colors hover:bg-emerald/20"
               >
                 <Plus className="w-4 h-4" />
@@ -271,9 +430,9 @@ export default function DevicesPage() {
         <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "Smart Devices", value: `${onlineSmartCount}/${devices.length}`, sub: "online", color: "text-emerald" },
-            { label: "Network Devices", value: `${onlineNetCount}/${networkDevices.length}`, sub: "connected", color: "text-primary" },
-            { label: "Wi-Fi Signal", value: `${status.wifi_signal.toFixed(0)} dBm`, sub: status.wifi_signal > -50 ? "Excellent" : "Good", color: "text-amber" },
-            { label: "Active Cameras", value: String(devices.filter((d) => d.type === "camera" && d.online).length), sub: "recording", color: "text-crimson" },
+            { label: "Lights On", value: String(devices.filter((d) => d.device_type === "light" && d.state?.on).length), sub: `of ${devices.filter((d) => d.device_type === "light").length} lights`, color: "text-amber" },
+            { label: "WiZ Devices", value: String(devices.filter((d) => d.brand === "wiz").length), sub: `${devices.filter((d) => d.brand === "wiz" && d.online).length} reachable`, color: "text-primary" },
+            { label: "Rooms", value: String(new Set(devices.map((d) => d.room)).size), sub: "configured", color: "text-cyan" },
           ].map((m) => (
             <div key={m.label} className="glass-card-hover p-4">
               <div className="text-xs text-muted-foreground mb-2">{m.label}</div>
@@ -305,135 +464,181 @@ export default function DevicesPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
             >
-              {devices.map((device) => (
-                <motion.div
-                  key={device.id}
-                  layout
-                  className={`glass-card-hover p-4 transition-all relative group ${!device.online ? "opacity-50" : ""}`}
-                >
-                  {/* Manage overlay */}
-                  {manageMode && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="absolute top-2 right-2 flex items-center gap-1 z-10"
-                    >
-                      <button
-                        onClick={() => openEditSmart(device)}
-                        className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              {loading ? (
+                <div className="glass-card p-8 flex items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Loading devices...</span>
+                </div>
+              ) : devices.length === 0 ? (
+                <div className="glass-card p-8 text-center space-y-3">
+                  <Lightbulb className="w-8 h-8 text-muted-foreground mx-auto" />
+                  <p className="text-sm text-muted-foreground">No smart devices registered yet.</p>
+                  <p className="text-xs text-muted-foreground">Click Manage then Add Device or Discover WiZ to get started.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {devices.map((device) => {
+                    const Icon = SMART_TYPE_ICONS[device.device_type] || Lightbulb;
+                    const isOn = device.state?.on;
+                    return (
+                      <motion.div
+                        key={device.id}
+                        layout
+                        className={`glass-card-hover p-4 transition-all relative group ${!device.online ? "opacity-50" : ""}`}
                       >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget({ id: device.id, kind: "smart" })}
-                        className="p-1.5 rounded-md bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </motion.div>
-                  )}
+                        {/* Manage overlay */}
+                        {manageMode && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="absolute top-2 right-2 flex items-center gap-1 z-10"
+                          >
+                            <button
+                              onClick={() => pollDeviceState(device.id)}
+                              className="p-1.5 rounded-md bg-cyan/10 text-cyan hover:bg-cyan/20 transition-colors"
+                              title="Refresh state"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => openEditSmart(device)}
+                              className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteTarget({ id: device.id, kind: "smart" })}
+                              className="p-1.5 rounded-md bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </motion.div>
+                        )}
 
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`p-2 rounded-lg ${device.state.on || device.state.recording ? "bg-primary/10" : "bg-secondary"}`}>
-                        <device.icon className={`w-4 h-4 ${device.state.on || device.state.recording ? "text-primary" : "text-muted-foreground"}`} />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-foreground">{device.name}</div>
-                        <div className="text-xs text-muted-foreground">{device.room}</div>
-                      </div>
-                    </div>
-                    {!manageMode && (
-                      <span className={`w-2 h-2 rounded-full mt-1.5 ${device.online ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
-                    )}
-                  </div>
-
-                  {/* Device-specific controls */}
-                  {device.type === "light" && device.online && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Power</span>
-                        <button onClick={() => toggleDevice(device.id)} className="text-muted-foreground hover:text-foreground transition-colors">
-                          {device.state.on ? (
-                            <ToggleRight className="w-6 h-6 text-emerald" />
-                          ) : (
-                            <ToggleLeft className="w-6 h-6" />
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-2 rounded-lg ${isOn ? "bg-primary/10" : "bg-secondary"}`}>
+                              <Icon className={`w-4 h-4 ${isOn ? "text-primary" : "text-muted-foreground"}`} />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-foreground">{device.name}</div>
+                              <div className="text-xs text-muted-foreground">{device.room}</div>
+                            </div>
+                          </div>
+                          {!manageMode && (
+                            <span className={`w-2 h-2 rounded-full mt-1.5 ${device.online ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
                           )}
-                        </button>
-                      </div>
-                      {device.state.on && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Brightness</span>
-                          <span className="font-mono text-xs text-foreground">{device.state.brightness}%</span>
                         </div>
-                      )}
-                    </div>
-                  )}
 
-                  {device.type === "thermostat" && device.online && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Current</span>
-                        <span className="font-mono text-sm text-foreground">{device.state.temp}°C</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Target</span>
-                        <span className="font-mono text-sm text-emerald">{device.state.target}°C</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Mode</span>
-                        <span className="status-badge bg-primary/10 text-primary text-[10px]">{device.state.mode}</span>
-                      </div>
-                    </div>
-                  )}
+                        {/* Brand & model */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="text-[10px] font-mono text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
+                            {device.brand}
+                          </span>
+                          {device.model && (
+                            <span className="text-[10px] font-mono text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
+                              {device.model}
+                            </span>
+                          )}
+                        </div>
 
-                  {device.type === "camera" && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Status</span>
-                      <span className={`status-badge text-[10px] ${device.online ? "bg-emerald/10 text-emerald" : "bg-secondary text-muted-foreground"}`}>
-                        {device.online ? "● Recording" : "Offline"}
-                      </span>
-                    </div>
-                  )}
+                        {/* IP & MAC */}
+                        <div className="text-[10px] font-mono text-muted-foreground space-y-0.5 mb-3">
+                          <div>IP: {device.ip}</div>
+                          {device.mac && <div>MAC: {device.mac}</div>}
+                        </div>
 
-                  {device.type === "speaker" && device.online && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Status</span>
-                        <span className="text-xs text-muted-foreground">{device.state.playing ? "Playing" : "Idle"}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Volume</span>
-                        <span className="font-mono text-xs text-foreground">{device.state.volume}%</span>
-                      </div>
-                    </div>
-                  )}
+                        {/* Error banner */}
+                        <AnimatePresence>
+                          {deviceErrors[device.id] && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-crimson/10 border border-crimson/20 mb-2">
+                                <WifiOff className="w-3.5 h-3.5 text-crimson shrink-0" />
+                                <span className="text-[11px] text-crimson">{deviceErrors[device.id]}</span>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
 
-                  {device.type === "sensor" && device.online && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Door</span>
-                        <span className={`status-badge text-[10px] ${device.state.open ? "bg-amber/10 text-amber" : "bg-emerald/10 text-emerald"}`}>
-                          {device.state.open ? "OPEN" : "CLOSED"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Temp</span>
-                        <span className="font-mono text-xs text-foreground">{device.state.temp}°C</span>
-                      </div>
-                    </div>
-                  )}
+                        {/* Device controls */}
+                        {device.device_type === "light" && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">Power</span>
+                              <div className="flex items-center gap-1.5">
+                                {busyDevices.has(device.id) && (
+                                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                )}
+                                <button onClick={() => toggleDevice(device)} disabled={busyDevices.has(device.id)} className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                                {isOn ? (
+                                  <ToggleRight className="w-6 h-6 text-emerald" />
+                                ) : (
+                                  <ToggleLeft className="w-6 h-6" />
+                                )}
+                              </button>
+                              </div>
+                            </div>
+                            {isOn && device.state?.brightness != null && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Brightness</span>
+                                <span className="font-mono text-xs text-foreground">{device.state.brightness}%</span>
+                              </div>
+                            )}
+                            {isOn && device.state?.color_temp != null && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Color Temp</span>
+                                <span className="font-mono text-xs text-foreground">{device.state.color_temp}K</span>
+                              </div>
+                            )}
+                            {isOn && device.state?.scene_name && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Scene</span>
+                                <span className="status-badge bg-primary/10 text-primary text-[10px]">{device.state.scene_name}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
-                  {!device.online && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <WifiOff className="w-3 h-3" />
-                      <span>Device offline</span>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                        {device.device_type === "thermostat" && device.online && (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">Current</span>
+                              <span className="font-mono text-sm text-foreground">{device.state?.temp ?? "—"}°C</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">Target</span>
+                              <span className="font-mono text-sm text-emerald">{device.state?.target ?? "—"}°C</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {device.device_type === "camera" && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Status</span>
+                            <span className={`status-badge text-[10px] ${device.online ? "bg-emerald/10 text-emerald" : "bg-secondary text-muted-foreground"}`}>
+                              {device.online ? "● Recording" : "Offline"}
+                            </span>
+                          </div>
+                        )}
+
+                        {!device.online && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <WifiOff className="w-3 h-3" />
+                            <span>Device offline</span>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -505,7 +710,7 @@ export default function DevicesPage() {
         <DialogContent className="bg-popover border-border sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-foreground">
-              {editingSmartDevice ? "Edit Smart Device" : "Add Smart Device"}
+              {editingDevice ? "Edit Smart Device" : "Add Smart Device"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -514,33 +719,80 @@ export default function DevicesPage() {
               <Input
                 value={smartForm.name}
                 onChange={(e) => setSmartForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Living Room Lamp"
+                placeholder="e.g. Dining Room Light"
                 className="bg-secondary border-border"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs">Room</Label>
-              <Input
-                value={smartForm.room}
-                onChange={(e) => setSmartForm((f) => ({ ...f, room: e.target.value }))}
-                placeholder="e.g. Bedroom"
-                className="bg-secondary border-border"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">Room / Location</Label>
+                <Input
+                  value={smartForm.room}
+                  onChange={(e) => setSmartForm((f) => ({ ...f, room: e.target.value }))}
+                  placeholder="e.g. Dining Room"
+                  className="bg-secondary border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">IP Address</Label>
+                <Input
+                  value={smartForm.ip}
+                  onChange={(e) => setSmartForm((f) => ({ ...f, ip: e.target.value }))}
+                  placeholder="192.168.1.150"
+                  className="bg-secondary border-border font-mono text-xs"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs">Type</Label>
-              <Select value={smartForm.type} onValueChange={(v) => setSmartForm((f) => ({ ...f, type: v as SmartDevice["type"] }))}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="thermostat">Thermostat</SelectItem>
-                  <SelectItem value="camera">Camera</SelectItem>
-                  <SelectItem value="speaker">Speaker</SelectItem>
-                  <SelectItem value="sensor">Sensor</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">Brand</Label>
+                <Select value={smartForm.brand} onValueChange={(v) => setSmartForm((f) => ({ ...f, brand: v }))}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="wiz">WiZ</SelectItem>
+                    <SelectItem value="tuya">Tuya</SelectItem>
+                    <SelectItem value="hue">Philips Hue</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">Type</Label>
+                <Select value={smartForm.device_type} onValueChange={(v) => setSmartForm((f) => ({ ...f, device_type: v }))}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="thermostat">Thermostat</SelectItem>
+                    <SelectItem value="camera">Camera</SelectItem>
+                    <SelectItem value="speaker">Speaker</SelectItem>
+                    <SelectItem value="sensor">Sensor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">Model (optional)</Label>
+                <Input
+                  value={smartForm.model}
+                  onChange={(e) => setSmartForm((f) => ({ ...f, model: e.target.value }))}
+                  placeholder="e.g. WiZ A60 Color"
+                  className="bg-secondary border-border"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">MAC Address (optional)</Label>
+                <Input
+                  value={smartForm.mac}
+                  onChange={(e) => setSmartForm((f) => ({ ...f, mac: e.target.value }))}
+                  placeholder="AA:BB:CC:DD:EE:FF"
+                  className="bg-secondary border-border font-mono text-xs"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -552,11 +804,11 @@ export default function DevicesPage() {
             </button>
             <button
               onClick={saveSmart}
-              disabled={!smartForm.name.trim()}
+              disabled={!smartForm.name.trim() || !smartForm.ip.trim()}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <Check className="w-3.5 h-3.5" />
-              {editingSmartDevice ? "Save" : "Add"}
+              {editingDevice ? "Save" : "Add"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -655,13 +907,96 @@ export default function DevicesPage() {
             </button>
             <button
               onClick={() => {
-                if (deleteTarget?.kind === "smart") deleteSmart(deleteTarget.id);
-                else if (deleteTarget?.kind === "network") deleteNet(deleteTarget.id);
+                if (deleteTarget?.kind === "smart") deleteSmart(deleteTarget.id as number);
+                else if (deleteTarget?.kind === "network") deleteNet(deleteTarget.id as string);
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-crimson text-primary-foreground text-sm font-medium hover:bg-crimson/90 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Delete
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Discover Results Dialog */}
+      <Dialog open={discoverDialogOpen} onOpenChange={setDiscoverDialogOpen}>
+        <DialogContent className="bg-popover border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              WiZ Discovery Results
+            </DialogTitle>
+          </DialogHeader>
+          {discoverResult && discoverResult.count === 0 ? (
+            <div className="py-6 text-center space-y-2">
+              <WifiOff className="w-8 h-8 text-muted-foreground mx-auto" />
+              <p className="text-sm font-medium text-foreground">No WiZ devices found</p>
+              <p className="text-xs text-muted-foreground">
+                Make sure your WiZ bulbs are powered on and connected to the same network as the server.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 py-2">
+              <p className="text-xs text-muted-foreground">
+                Found {discoverResult?.count} device{discoverResult?.count !== 1 ? "s" : ""} on the network:
+              </p>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {discoverResult?.discovered.map((bulb) => (
+                  <div
+                    key={bulb.ip}
+                    className={`flex items-center justify-between p-3 rounded-lg ${
+                      bulb.registered
+                        ? "bg-emerald/5 border border-emerald/20"
+                        : "bg-secondary/50 border border-border"
+                    }`}
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className={`w-4 h-4 ${bulb.registered ? "text-emerald" : "text-amber"}`} />
+                        <span className="text-sm font-mono text-foreground">{bulb.ip}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground space-x-3 pl-6">
+                        {bulb.mac && <span>MAC: {bulb.mac}</span>}
+                        {bulb.module && <span>{bulb.module}</span>}
+                      </div>
+                    </div>
+                    {bulb.registered ? (
+                      <span className="text-[10px] font-medium text-emerald bg-emerald/10 px-2 py-0.5 rounded-full">
+                        Registered
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSmartForm({
+                            name: bulb.module || "WiZ Light",
+                            room: "",
+                            device_type: "light",
+                            brand: "wiz",
+                            model: bulb.module || "",
+                            ip: bulb.ip,
+                            mac: bulb.mac || "",
+                          });
+                          setEditingDevice(null);
+                          setDiscoverDialogOpen(false);
+                          setSmartDialogOpen(true);
+                        }}
+                        className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <button
+              onClick={() => setDiscoverDialogOpen(false)}
+              className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Close
             </button>
           </DialogFooter>
         </DialogContent>

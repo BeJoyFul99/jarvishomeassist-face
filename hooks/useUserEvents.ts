@@ -4,15 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-
-interface SSEEvent {
-  type: string;
-  data: {
-    user_id: number;
-    email: string;
-    role?: string;
-  };
-}
+import { sseClient, type SSEMessage } from "@/lib/sseClient";
 
 // Events that should force-logout the affected user
 const FORCE_LOGOUT_EVENTS = [
@@ -36,14 +28,13 @@ const REFRESH_EVENTS = [
 type RefreshCallback = () => void;
 
 /**
- * Connects to the SSE stream and handles real-time user events.
+ * Subscribes to user-related SSE events via the shared SSE client.
  * - Force-logout if the current user is locked/deleted/revoked
  * - Calls onRefresh when the user list should be refreshed
  */
 export function useUserEvents(onRefresh?: RefreshCallback) {
   const { token, user, logout, isAuthenticated } = useAuthStore();
   const router = useRouter();
-  const eventSourceRef = useRef<EventSource | null>(null);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
 
@@ -59,91 +50,46 @@ export function useUserEvents(onRefresh?: RefreshCallback) {
   useEffect(() => {
     if (!isAuthenticated || !token || !user) return;
 
-    // EventSource doesn't support custom headers, so we pass the token as a query param
-    // and the SSE proxy route will handle it. But EventSource only sends cookies.
-    // We need to use a custom approach with fetch + ReadableStream instead.
-    let cancelled = false;
+    // Update SSE client token
+    sseClient.setToken(token);
 
-    const connect = async () => {
-      try {
-        const res = await fetch("/api/events", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "text/event-stream",
-          },
+    const handler = (event: SSEMessage) => {
+      // Skip non-user events
+      if (event.type === "connected" || event.type === "status:update") return;
+
+      const data = event.data as { user_id?: number; email?: string; role?: string };
+      if (!data?.email) return;
+
+      const isMe = data.email === user.email;
+
+      // Force logout if current user is affected by a destructive event
+      if (isMe && FORCE_LOGOUT_EVENTS.includes(event.type)) {
+        const reasons: Record<string, string> = {
+          "user:locked": "Your account has been locked by an administrator.",
+          "user:deleted": "Your account has been deleted.",
+          "user:tokens_revoked": "Your session has been revoked by an administrator.",
+        };
+        handleForceLogout(reasons[event.type] || "Your session has ended.");
+        return;
+      }
+
+      // If current user's permissions were updated, notify them
+      if (isMe && event.type === "user:updated") {
+        toast.info("Your permissions have been updated. Please log in again for changes to take effect.", {
+          duration: 6000,
         });
+      }
 
-        if (!res.ok || !res.body) return;
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (!cancelled) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-
-          // Parse SSE messages (lines starting with "data: ")
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // keep incomplete line in buffer
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (!jsonStr) continue;
-
-            try {
-              const event: SSEEvent = JSON.parse(jsonStr);
-
-              // Skip the initial "connected" event
-              if (event.type === "connected") continue;
-
-              // Check if this event affects the current user
-              const isMe = event.data.email === user.email;
-
-              // Force logout if current user is affected by a destructive event
-              if (isMe && FORCE_LOGOUT_EVENTS.includes(event.type)) {
-                const reasons: Record<string, string> = {
-                  "user:locked": "Your account has been locked by an administrator.",
-                  "user:deleted": "Your account has been deleted.",
-                  "user:tokens_revoked": "Your session has been revoked by an administrator.",
-                };
-                cancelled = true;
-                reader.cancel();
-                handleForceLogout(reasons[event.type] || "Your session has ended.");
-                return;
-              }
-
-              // If current user's permissions were updated, notify them
-              if (isMe && event.type === "user:updated") {
-                toast.info("Your permissions have been updated. Please log in again for changes to take effect.", {
-                  duration: 6000,
-                });
-              }
-
-              // Trigger a list refresh for any user-related event
-              if (REFRESH_EVENTS.includes(event.type)) {
-                onRefreshRef.current?.();
-              }
-            } catch {
-              // ignore parse errors
-            }
-          }
-        }
-      } catch {
-        // Connection failed — retry after delay
-        if (!cancelled) {
-          setTimeout(connect, 5000);
-        }
+      // Trigger a list refresh for any user-related event
+      if (REFRESH_EVENTS.includes(event.type)) {
+        onRefreshRef.current?.();
       }
     };
 
-    connect();
+    const unsubscribe = sseClient.subscribe(handler);
 
     return () => {
-      cancelled = true;
+      unsubscribe();
     };
   }, [isAuthenticated, token, user, handleForceLogout]);
 }

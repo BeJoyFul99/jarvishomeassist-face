@@ -13,13 +13,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Timeout the initial connection after 5s so we don't hang forever
+    const controller = new AbortController();
+    const connectTimeout = setTimeout(() => controller.abort(), 5000);
+    request.signal.addEventListener("abort", () => controller.abort());
+
     const res = await fetch(`${BACKEND_URL}/api/v1/status/stream`, {
       headers: {
         Authorization: authHeader,
         Accept: "text/event-stream",
       },
-      signal: request.signal,
+      signal: controller.signal,
     });
+    clearTimeout(connectTimeout);
 
     if (!res.ok) {
       return new Response(JSON.stringify({ error: "backend_error" }), {

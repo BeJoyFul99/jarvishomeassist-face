@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Settings,
+  SlidersHorizontal,
   Cpu,
   Brain,
   Shield,
@@ -20,8 +21,11 @@ import {
   Lightbulb,
   Wifi,
   Film,
+  Zap,
   User,
   Users,
+  ScrollText,
+  MessageCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { usePathname } from "next/navigation";
@@ -54,28 +58,44 @@ const adminMainItems = [
 ];
 
 const adminSystemItems = [
+  { title: "Jarvis Chat", url: "/chat", icon: MessageCircle },
   { title: "Inference Engine", url: "/inference", icon: Brain },
   { title: "Network & Ports", url: "/network", icon: Shield },
   { title: "Home Devices", url: "/devices", icon: House },
+  { title: "Energy Management", url: "/energy", icon: Zap },
   { title: "Terminal", url: "/terminal", icon: Terminal },
+  { title: "Server Logs", url: "/logs", icon: ScrollText },
 ];
 
 const adminConfigItems = [
   { title: "User Management", url: "/users", icon: Users },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Server Settings", url: "/settings", icon: Settings },
+  { title: "Preferences", url: "/preferences", icon: SlidersHorizontal },
 ];
 
 // Family member navigation (perm = required permission, undefined = always visible)
 const memberItems = [
   { title: "Home", url: "/home", icon: Home, perm: undefined },
-  { title: "Smart Home", url: "/home/devices", icon: Lightbulb, perm: "smart_device:view" },
+  { title: "Jarvis Chat", url: "/chat", icon: MessageCircle, perm: undefined },
+  {
+    title: "Smart Home",
+    url: "/home/devices",
+    icon: Lightbulb,
+    perm: "smart_device:view",
+  },
+  { title: "Energy", url: "/home/energy", icon: Zap, perm: undefined },
   { title: "Network", url: "/home/network", icon: Wifi, perm: "network:view" },
-  { title: "Media & Files", url: "/home/media", icon: Film, perm: "media:view" },
+  {
+    title: "Media & Files",
+    url: "/home/media",
+    icon: Film,
+    perm: "media:view",
+  },
 ];
 
 const memberConfigItems = [
   { title: "My Profile", url: "/profile", icon: User },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Preferences", url: "/preferences", icon: SlidersHorizontal },
 ];
 
 const nodeIcons: Record<string, typeof Cpu> = {
@@ -266,7 +286,10 @@ export function AppSidebar() {
           </>
         ) : (
           <>
-            {renderNavGroup("Home", memberItems.filter((i) => !i.perm || hasPermission(i.perm)))}
+            {renderNavGroup(
+              "Home",
+              memberItems.filter((i) => !i.perm || hasPermission(i.perm)),
+            )}
             {renderNavGroup("Account", [
               ...memberConfigItems,
               ...(canViewUsers

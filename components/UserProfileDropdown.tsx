@@ -1,6 +1,6 @@
 "use client";
 
-import { User, LogOut, Settings, ChevronDown, Home, Shield, Eye, EyeOff } from "lucide-react";
+import { User, LogOut, Settings, SlidersHorizontal, ChevronDown, Home, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import {
@@ -79,22 +79,27 @@ const UserProfileDropdown = () => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-border" />
-        <DropdownMenuItem className="cursor-pointer gap-2 focus:bg-primary/10">
+        <DropdownMenuItem className="cursor-pointer gap-2 focus:bg-primary/10"
+          onClick={() => router.push("/profile")}
+        >
           <User className="h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="cursor-pointer gap-2 focus:bg-primary/10"
-          onClick={() => router.push("/settings")}
+          onClick={() => router.push("/preferences")}
         >
-          <Settings className="h-4 w-4" />
-          <span>Settings</span>
+          <SlidersHorizontal className="h-4 w-4" />
+          <span>Preferences</span>
         </DropdownMenuItem>
         {isAdmin && (
           <>
-            <DropdownMenuItem className="cursor-pointer gap-2 focus:bg-primary/10">
-              <Shield className="h-4 w-4" />
-              <span>Security</span>
+            <DropdownMenuItem
+              className="cursor-pointer gap-2 focus:bg-primary/10"
+              onClick={() => router.push("/settings")}
+            >
+              <Settings className="h-4 w-4" />
+              <span>Server Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem

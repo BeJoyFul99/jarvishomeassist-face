@@ -38,7 +38,14 @@ export async function proxyToBackend(
 
   try {
     const res = await fetch(`${BACKEND_URL}${backendPath}`, fetchOpts);
-    const data = await res.json();
+
+    const text = await res.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { error: "invalid_response", message: text };
+    }
     return NextResponse.json(data, { status: res.status });
   } catch (error) {
     console.error(`Proxy error [${method} ${backendPath}]:`, error);

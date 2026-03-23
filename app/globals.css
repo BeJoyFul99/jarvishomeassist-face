@@ -314,3 +314,33 @@
 button:hover {
   cursor: pointer;
 }
+
+/* Chat: scroll-to-reply flash highlight */
+@keyframes msg-flash {
+  0% { background-color: hsl(var(--cyan) / 0.15); }
+  100% { background-color: transparent; }
+}
+.msg-highlight {
+  animation: msg-flash 1.5s ease-out;
+  border-radius: 0.75rem;
+}
+
+/* Chat typing dots animation */
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* Markdown in chat messages */
+.prose-sm pre {
+  margin: 0.5rem 0;
+}
+.prose-sm code {
+  font-family: "JetBrains Mono", monospace;
+}

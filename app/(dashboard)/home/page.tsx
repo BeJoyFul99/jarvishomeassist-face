@@ -16,50 +16,31 @@ import {
 import { useFleet } from "@/hooks/useFleet";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
+import CircadianSlider from "@/components/home/CircadianSlider";
+import DevStatusBadge from "@/components/home/DevStatusBadge";
+import NetworkPulse from "@/components/home/NetworkPulse";
+import PomodoroRing from "@/components/home/PomodoroRing";
+import EnergyHeatmap from "@/components/home/EnergyHeatmap";
 
 const container = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
-const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
+const item = {
+  hidden: { opacity: 0, y: 16, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
+};
 
 const QUICK_LINKS = [
-  {
-    label: "Smart Home",
-    icon: Lightbulb,
-    path: "/home/devices",
-    color: "text-amber",
-  },
-  {
-    label: "Network",
-    icon: Wifi,
-    path: "/home/network",
-    color: "text-cyan",
-  },
-  {
-    label: "Media & Files",
-    icon: Cloud,
-    path: "/home/media",
-    color: "text-magenta",
-  },
+  { label: "Smart Home", icon: Lightbulb, path: "/home/devices", color: "text-amber" },
+  { label: "Network", icon: Wifi, path: "/home/network", color: "text-cyan" },
+  { label: "Media & Files", icon: Cloud, path: "/home/media", color: "text-magenta" },
 ];
 
 const ANNOUNCEMENTS = [
-  {
-    text: "Wi-Fi maintenance scheduled for Saturday 2 AM",
-    time: "2h ago",
-    type: "info" as const,
-  },
-  {
-    text: "New shared photos uploaded to Family Album",
-    time: "5h ago",
-    type: "success" as const,
-  },
-  {
-    text: "Smart thermostat set to eco mode",
-    time: "1d ago",
-    type: "info" as const,
-  },
+  { text: "Wi-Fi maintenance scheduled for Saturday 2 AM", time: "2h ago", type: "info" as const },
+  { text: "New shared photos uploaded to Family Album", time: "5h ago", type: "success" as const },
+  { text: "Smart thermostat set to eco mode", time: "1d ago", type: "info" as const },
 ];
 
 const HomePage = () => {
@@ -78,7 +59,7 @@ const HomePage = () => {
       variants={container}
       initial="hidden"
       animate="show"
-      className="p-6 max-w-5xl mx-auto space-y-6"
+      className="p-4 md:p-6 max-w-7xl mx-auto space-y-6"
     >
       {/* Greeting */}
       <motion.div variants={item} className="space-y-1">
@@ -102,9 +83,7 @@ const HomePage = () => {
         <div className="glass-card p-4 space-y-2">
           <div className="flex items-center gap-2 text-amber">
             <Sun className="w-5 h-5" />
-            <span className="text-xs font-mono text-muted-foreground">
-              Weather
-            </span>
+            <span className="text-xs font-mono text-muted-foreground">Weather</span>
           </div>
           <p className="text-xl font-semibold text-foreground">72°F</p>
           <p className="text-[11px] text-muted-foreground">Partly Cloudy</p>
@@ -117,24 +96,18 @@ const HomePage = () => {
             ) : (
               <WifiOff className="w-5 h-5" />
             )}
-            <span className="text-xs font-mono text-muted-foreground">
-              Internet
-            </span>
+            <span className="text-xs font-mono text-muted-foreground">Internet</span>
           </div>
           <p className="text-xl font-semibold text-foreground">
             {aggregated.onlineNodes > 0 ? "Online" : "Offline"}
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            All systems normal
-          </p>
+          <p className="text-[11px] text-muted-foreground">All systems normal</p>
         </div>
 
         <div className="glass-card p-4 space-y-2">
           <div className="flex items-center gap-2 text-emerald">
             <Shield className="w-5 h-5" />
-            <span className="text-xs font-mono text-muted-foreground">
-              Security
-            </span>
+            <span className="text-xs font-mono text-muted-foreground">Security</span>
           </div>
           <p className="text-xl font-semibold text-foreground">Secure</p>
           <p className="text-[11px] text-muted-foreground">VPN active</p>
@@ -143,13 +116,26 @@ const HomePage = () => {
         <div className="glass-card p-4 space-y-2">
           <div className="flex items-center gap-2 text-magenta">
             <Thermometer className="w-5 h-5" />
-            <span className="text-xs font-mono text-muted-foreground">
-              Home Temp
-            </span>
+            <span className="text-xs font-mono text-muted-foreground">Home Temp</span>
           </div>
           <p className="text-xl font-semibold text-foreground">71°F</p>
           <p className="text-[11px] text-muted-foreground">Thermostat: Auto</p>
         </div>
+      </motion.div>
+
+      {/* Circadian + Pomodoro + Dev Status row */}
+      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CircadianSlider />
+        <PomodoroRing />
+        <div className="space-y-4">
+          <DevStatusBadge />
+          <EnergyHeatmap />
+        </div>
+      </motion.div>
+
+      {/* Network Pulse */}
+      <motion.div variants={item}>
+        <NetworkPulse />
       </motion.div>
 
       {/* Quick Links */}

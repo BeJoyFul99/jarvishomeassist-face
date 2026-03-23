@@ -10,13 +10,13 @@ import UserProfileDropdown from "@/components/UserProfileDropdown";
 import NotificationCenter from "@/components/NotificationCenter";
 import { Wifi, Shield, Cpu, HardDrive, Brain } from "lucide-react";
 import { useFleet } from "@/hooks/useFleet";
-import { useFleetStore } from "@/store/useFleetStore";
+
 import { useFleetNotifications } from "@/hooks/useFleetNotifications";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouteGuard } from "@/components/RouteGuard";
 import { useUserEvents } from "@/hooks/useUserEvents";
 import { formatStorage } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 function getSignalQuality(dbm: number) {
   if (dbm > -40) return { label: "Ultra Stable", color: "text-cyan" };
@@ -29,9 +29,10 @@ function getSignalQuality(dbm: number) {
 const DashboardInner = ({ children }: { children: React.ReactNode }) => {
   const { activeNode, aggregated } = useFleet();
   const { setIsMobile, initialize } = useSidebarStore();
-  const { refresh: refreshFleet } = useFleetStore();
   const isMobile = useIsMobile();
   const router = useRouter();
+  const pathname = usePathname();
+  const isChat = pathname === "/chat";
   useFleetNotifications();
   useRouteGuard();
   useUserEvents();
@@ -51,9 +52,8 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
 
   React.useEffect(() => {
     initialize();
-    refreshFleet();
     setIsMobile(isMobile);
-  }, [isMobile, setIsMobile, initialize, refreshFleet]);
+  }, [isMobile, setIsMobile, initialize]);
 
   // Show nothing until hydration is complete — prevents login flash
   if (!_hasHydrated || !isAuthenticated) return null;
@@ -66,7 +66,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
           <div className="flex-1 flex flex-col min-w-0">
             {/* Global Fleet Ticker — Admin only */}
             {isAdmin && (
-              <div className="h-7 bg-card/80 border-b border-border overflow-hidden flex items-center shrink-0">
+              <div className={`h-7 bg-card/80 border-b border-border overflow-hidden flex items-center shrink-0 ${isChat ? "md:flex hidden" : ""}`}>
                 <div className="flex items-center gap-6 px-4 ticker-scroll whitespace-nowrap">
                   {[0, 1].map((dup) => (
                     <div key={dup} className="flex items-center gap-6">
@@ -119,8 +119,8 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
               </div>
             )}
 
-            {/* Top Bar */}
-            <header className="h-12 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-md sticky top-0 z-30">
+            {/* Top Bar — hidden on mobile when in chat */}
+            <header className={`h-12 flex items-center justify-between border-b border-border px-4 bg-background/80 backdrop-blur-md sticky top-0 z-30 ${isChat ? "md:flex hidden" : ""}`}>
               <div className="flex items-center gap-3">
                 <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
                 {/* Technical signal/network info — Admin only */}
@@ -164,7 +164,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
             </header>
 
             {/* Page Content */}
-            <main className="flex-1 overflow-y-auto bg-background/30 px-4 pt-4 pb-8">
+            <main className={`flex-1 overflow-hidden bg-background/30 ${isChat ? "p-0" : "overflow-y-auto px-4 pt-4 pb-8"}`}>
               {children}
             </main>
           </div>
