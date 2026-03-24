@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { proxyToBackend } from "@/lib/apiProxy";
 
-const BACKEND_URL = process.env.GO_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_GO_BACKEND_URL || "http://localhost:5000";
 
 // GET /api/chat/rooms/:id/messages?limit=50&before=123
 export async function GET(

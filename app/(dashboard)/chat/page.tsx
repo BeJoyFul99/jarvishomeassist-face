@@ -73,19 +73,11 @@ export default function ChatPage() {
   );
   const [isMobile, setIsMobile] = useState(false);
   const [membersList, setMembersList] = useState<
-    Array<{ id: number; email: string; display_name: string }>
+    Array<{ id: number; email: string; display_name: string; is_online?: boolean }>
   >([]);
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [roomMembers, setRoomMembers] = useState<
-    Array<{
-      id: number;
-      email: string;
-      display_name: string;
-      is_online?: boolean;
-    }>
-  >([]);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -150,27 +142,7 @@ export default function ChatPage() {
     [input],
   );
 
-  // Fetch room members when active room changes (group chats only)
-  useEffect(() => {
-    if (!activeRoom || activeRoom.type !== "group") {
-      setRoomMembers([]);
-      return;
-    }
-    const fetchRoomMembers = async () => {
-      try {
-        const res = await fetch("/api/chat/users", { headers: authHeaders() });
-        if (res.ok) {
-          const data = await res.json();
-          setRoomMembers(data || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch room members:", error);
-      }
-    };
-    fetchRoomMembers();
-  }, [activeRoom, authHeaders]);
-
-  // Fetch all users for mentions and "create group" modal
+  // Fetch all chat users once (used for mentions, members panel, and create modal)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -184,7 +156,7 @@ export default function ChatPage() {
       }
     };
     fetchUsers();
-  }, [showCreateModal, authHeaders]);
+  }, [authHeaders]);
 
   // ── Load rooms ───────────────────────────────────────────
 
@@ -233,7 +205,7 @@ export default function ChatPage() {
 
   // ── Auto-scroll ──────────────────────────────────────────
 
-  const activeMessages = activeRoomId ? messages[activeRoomId] || [] : [];
+  const activeMessages = useMemo(() => activeRoomId ? messages[activeRoomId] || [] : [], [activeRoomId, messages]);
   const activeStreaming = activeRoomId
     ? streamingContent[activeRoomId]
     : undefined;
@@ -272,17 +244,21 @@ export default function ChatPage() {
 
   // ── Mark as seen ─────────────────────────────────────────
 
+  const lastRealMsgId = useMemo(() => {
+    for (let i = activeMessages.length - 1; i >= 0; i--) {
+      if (activeMessages[i].id > 0) return activeMessages[i].id;
+    }
+    return 0;
+  }, [activeMessages]);
+
   useEffect(() => {
-    if (!activeRoomId || activeMessages.length === 0) return;
-    const lastMsg = activeMessages[activeMessages.length - 1];
-    // Skip optimistic messages (negative temp IDs)
-    if (lastMsg.id < 0) return;
+    if (!activeRoomId || !lastRealMsgId) return;
     fetch(`/api/chat/rooms/${activeRoomId}/seen`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ last_read: lastMsg.id }),
+      body: JSON.stringify({ last_read: lastRealMsgId }),
     }).catch(() => {});
-  }, [activeRoomId, activeMessages, authHeaders]);
+  }, [activeRoomId, lastRealMsgId, authHeaders]);
 
   // ── Send message ─────────────────────────────────────────
 
@@ -660,7 +636,7 @@ export default function ChatPage() {
                   <p className="text-xs text-muted-foreground">AI Assistant</p>
                 ) : activeRoom?.type === "group" ? (
                   <p className="text-xs text-muted-foreground">
-                    {roomMembers.length > 0 ? `${roomMembers.length} members` : "Group chat"}
+                    {membersList.length > 0 ? `${membersList.length} members` : "Group chat"}
                   </p>
                 ) : null}
               </div>
@@ -1034,7 +1010,7 @@ export default function ChatPage() {
             <div className="px-4 py-4 border-b border-border/30">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-foreground">
-                  Members ({roomMembers.length})
+                  Members ({membersList.length})
                 </h3>
                 <button
                   type="button"
@@ -1046,7 +1022,7 @@ export default function ChatPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              {roomMembers.map((member) => (
+              {membersList.map((member) => (
                 <div
                   key={member.id}
                   className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-secondary/30 transition-colors"

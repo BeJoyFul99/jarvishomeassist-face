@@ -99,10 +99,22 @@ export default function InferencePage() {
     setLoading(true);
     try {
       const [todayRes, summaryRes, modelRes, errorRes] = await Promise.all([
-        fetch("/api/admin/ai-usage?endpoint=today", { headers: headers(), cache: "no-store" }),
-        fetch(`/api/admin/ai-usage?endpoint=summary&days=${days}`, { headers: headers(), cache: "no-store" }),
-        fetch(`/api/admin/ai-usage?endpoint=by-model&days=${days}`, { headers: headers(), cache: "no-store" }),
-        fetch("/api/admin/ai-usage?endpoint=errors&days=1", { headers: headers(), cache: "no-store" }),
+        fetch("/api/admin/ai-usage?endpoint=today", {
+          headers: headers(),
+          cache: "no-store",
+        }),
+        fetch(`/api/admin/ai-usage?endpoint=summary&days=${days}`, {
+          headers: headers(),
+          cache: "no-store",
+        }),
+        fetch(`/api/admin/ai-usage?endpoint=by-model&days=${days}`, {
+          headers: headers(),
+          cache: "no-store",
+        }),
+        fetch("/api/admin/ai-usage?endpoint=errors&days=1", {
+          headers: headers(),
+          cache: "no-store",
+        }),
       ]);
 
       if (todayRes.ok) {
@@ -122,38 +134,46 @@ export default function InferencePage() {
 
       if (summaryRes.ok) {
         const d = await summaryRes.json();
-        setDaily((d.days || []).map((r: Record<string, unknown>) => ({
-          day: String(r.day || "").slice(0, 10),
-          total_calls: num(r.total_calls),
-          total_neurons: num(r.total_neurons),
-          total_cost: num(r.total_cost),
-          avg_latency_ms: num(r.avg_latency_ms),
-          total_input_tokens: num(r.total_input_tokens),
-          total_output_tokens: num(r.total_output_tokens),
-        })).reverse());
+        setDaily(
+          (d.days || [])
+            .map((r: Record<string, unknown>) => ({
+              day: String(r.day || "").slice(0, 10),
+              total_calls: num(r.total_calls),
+              total_neurons: num(r.total_neurons),
+              total_cost: num(r.total_cost),
+              avg_latency_ms: num(r.avg_latency_ms),
+              total_input_tokens: num(r.total_input_tokens),
+              total_output_tokens: num(r.total_output_tokens),
+            }))
+            .reverse(),
+        );
       }
 
       if (modelRes.ok) {
         const d = await modelRes.json();
-        setModels((d.models || []).map((r: Record<string, unknown>) => ({
-          model: String(r.model || "unknown"),
-          content_type: String(r.content_type || "text"),
-          total_calls: num(r.total_calls),
-          total_neurons: num(r.total_neurons),
-          total_cost: num(r.total_cost),
-          avg_latency_ms: num(r.avg_latency_ms),
-        })));
+        setModels(
+          (d.models || []).map((r: Record<string, unknown>) => ({
+            model: String(r.model || "unknown"),
+            content_type: String(r.content_type || "text"),
+            total_calls: num(r.total_calls),
+            total_neurons: num(r.total_neurons),
+            total_cost: num(r.total_cost),
+            avg_latency_ms: num(r.avg_latency_ms),
+          })),
+        );
       }
 
       if (errorRes.ok) {
         const d = await errorRes.json();
-        setErrors((d.errors || []).slice(0, 10).map((r: Record<string, unknown>) => ({
-          timestamp: String(r.timestamp || ""),
-          model: String(r.model || ""),
-          task: String(r.task || ""),
-          error_message: String(r.error_message || r.error || ""),
-          latency_ms: num(r.latency_ms),
-        })));
+        setErrors(
+          (d.errors || []).slice(0, 10).map((r: Record<string, unknown>) => ({
+            timestamp: String(r.timestamp || ""),
+            model: String(r.model || ""),
+            task: String(r.task || ""),
+            error_message: String(r.error_message || r.error || ""),
+            latency_ms: num(r.latency_ms),
+          })),
+        );
       }
     } catch {
       // silent
@@ -172,21 +192,35 @@ export default function InferencePage() {
     return () => clearInterval(interval);
   }, [fetchAll]);
 
-  const neuronPct = today ? Math.min((today.total_neurons / FREE_TIER_NEURONS) * 100, 100) : 0;
+  const neuronPct = today
+    ? Math.min((today.total_neurons / FREE_TIER_NEURONS) * 100, 100)
+    : 0;
   const hasData = today && !today.error;
 
   return (
     <div className="bg-background">
-      <motion.div variants={container} initial="hidden" animate="show" className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="p-4 md:p-6 max-w-7xl mx-auto space-y-4"
+      >
         {/* Header */}
-        <motion.div variants={item} className="flex items-center justify-between">
+        <motion.div
+          variants={item}
+          className="flex items-center justify-between"
+        >
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
               <Brain className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-foreground">AI Inference</h1>
-              <p className="text-sm text-muted-foreground">Cloudflare Workers AI usage tracking</p>
+              <h1 className="text-xl font-semibold text-foreground">
+                AI Inference
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Cloudflare Workers AI usage tracking
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -205,7 +239,9 @@ export default function InferencePage() {
               disabled={loading}
               className="p-2 rounded-lg hover:bg-secondary/50 text-muted-foreground hover:text-foreground transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
             </button>
           </div>
         </motion.div>
@@ -227,11 +263,22 @@ export default function InferencePage() {
 
         {/* Not configured banner */}
         {today?.error && (
-          <motion.div variants={item} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/50 border border-border/30">
+          <motion.div
+            variants={item}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/50 border border-border/30"
+          >
             <Activity className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex-1">
               <span className="text-sm text-muted-foreground">
-                Analytics Engine not configured yet. Set <code className="text-xs bg-secondary px-1 py-0.5 rounded">CF_ACCOUNT_ID</code> and <code className="text-xs bg-secondary px-1 py-0.5 rounded">CF_API_TOKEN</code> in your .env to see real usage data.
+                Analytics Engine not configured yet. Set{" "}
+                <code className="text-xs bg-secondary px-1 py-0.5 rounded">
+                  CF_ACCOUNT_ID
+                </code>{" "}
+                and{" "}
+                <code className="text-xs bg-secondary px-1 py-0.5 rounded">
+                  CF_API_TOKEN
+                </code>{" "}
+                in your .env to see real usage data.
               </span>
             </div>
             <Link
@@ -244,12 +291,17 @@ export default function InferencePage() {
         )}
 
         {/* Top metrics */}
-        <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <motion.div
+          variants={item}
+          className="grid grid-cols-2 md:grid-cols-4 gap-3"
+        >
           <MetricCard
             icon={Zap}
             label="Neurons Today"
             value={hasData ? formatNum(today!.total_neurons) : "—"}
-            sub={hasData ? `${neuronPct.toFixed(0)}% of free tier` : "No data yet"}
+            sub={
+              hasData ? `${neuronPct.toFixed(0)}% of free tier` : "No data yet"
+            }
             color="text-cyan"
             loading={loading}
           />
@@ -265,7 +317,11 @@ export default function InferencePage() {
             icon={Activity}
             label="Avg Latency"
             value={hasData ? `${today!.avg_latency_ms.toFixed(0)}ms` : "—"}
-            sub={hasData && today!.error_count > 0 ? `${today!.error_count} errors` : "All OK"}
+            sub={
+              hasData && today!.error_count > 0
+                ? `${today!.error_count} errors`
+                : "All OK"
+            }
             color="text-primary"
             loading={loading}
           />
@@ -283,15 +339,22 @@ export default function InferencePage() {
         {hasData && (
           <motion.div variants={item} className="glass-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Free Tier Budget</span>
+              <span className="text-xs text-muted-foreground">
+                Free Tier Budget
+              </span>
               <span className="text-xs font-mono text-foreground">
-                {formatNum(today!.total_neurons)} / {formatNum(FREE_TIER_NEURONS)} neurons
+                {formatNum(today!.total_neurons)} /{" "}
+                {formatNum(FREE_TIER_NEURONS)} neurons
               </span>
             </div>
             <div className="h-2.5 bg-secondary rounded-full overflow-hidden">
               <motion.div
                 className={`h-full rounded-full ${
-                  neuronPct >= 90 ? "bg-red-500" : neuronPct >= 70 ? "bg-amber-500" : "bg-cyan-500"
+                  neuronPct >= 90
+                    ? "bg-red-500"
+                    : neuronPct >= 70
+                      ? "bg-amber-500"
+                      : "bg-cyan-500"
                 }`}
                 animate={{ width: `${neuronPct}%` }}
                 transition={{ duration: 0.8 }}
@@ -299,10 +362,14 @@ export default function InferencePage() {
             </div>
             <div className="flex justify-between mt-1.5">
               <span className="text-[10px] text-muted-foreground/60">
-                Est. cost: ${(today!.total_neurons / 1000 * COST_PER_1K).toFixed(4)}
+                Est. cost: $
+                {((today!.total_neurons / 1000) * COST_PER_1K).toFixed(4)}
               </span>
               <span className="text-[10px] text-muted-foreground/60">
-                {formatNum(Math.max(0, FREE_TIER_NEURONS - today!.total_neurons))} remaining
+                {formatNum(
+                  Math.max(0, FREE_TIER_NEURONS - today!.total_neurons),
+                )}{" "}
+                remaining
               </span>
             </div>
           </motion.div>
@@ -314,7 +381,9 @@ export default function InferencePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Daily Usage</span>
+                <span className="text-sm font-medium text-foreground">
+                  Daily Usage
+                </span>
               </div>
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -330,20 +399,38 @@ export default function InferencePage() {
                 <AreaChart data={daily}>
                   <defs>
                     <linearGradient id="neuronGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--cyan))" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(var(--cyan))" stopOpacity={0} />
+                      <stop
+                        offset="0%"
+                        stopColor="hsl(var(--cyan))"
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="hsl(var(--cyan))"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.3} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                    strokeOpacity={0.3}
+                  />
                   <XAxis
                     dataKey="day"
                     tickFormatter={(v) => v.slice(5)}
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
                     axisLine={false}
                     tickLine={false}
                     width={40}
@@ -356,9 +443,13 @@ export default function InferencePage() {
                       fontSize: 12,
                     }}
                     labelFormatter={(v) => `Date: ${v}`}
-                    formatter={(v: number, name: string) => {
-                      if (name === "total_cost") return [`$${v.toFixed(4)}`, "Cost"];
-                      if (name === "total_neurons") return [formatNum(v), "Neurons"];
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={(v: any, name: any) => {
+                      const val = Number(v) || 0;
+                      if (name === "total_cost")
+                        return [`$${val.toFixed(4)}`, "Cost"];
+                      if (name === "total_neurons")
+                        return [formatNum(val), "Neurons"];
                       return [v, name];
                     }}
                   />
@@ -374,7 +465,11 @@ export default function InferencePage() {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-55 text-sm text-muted-foreground">
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "No usage data yet"}
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  "No usage data yet"
+                )}
               </div>
             )}
           </motion.div>
@@ -412,13 +507,17 @@ export default function InferencePage() {
                         </span>
                       </div>
                       {m.content_type === "vision" && (
-                        <span className="text-[9px] text-amber-400 mt-0.5 inline-block">vision</span>
+                        <span className="text-[9px] text-amber-400 mt-0.5 inline-block">
+                          vision
+                        </span>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-4">No model data</p>
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  No model data
+                </p>
               )}
             </div>
 
@@ -430,8 +529,14 @@ export default function InferencePage() {
               {daily.length > 1 ? (
                 <div className="space-y-2.5">
                   {(() => {
-                    const totalCost = daily.reduce((s, d) => s + d.total_cost, 0);
-                    const totalNeurons = daily.reduce((s, d) => s + d.total_neurons, 0);
+                    const totalCost = daily.reduce(
+                      (s, d) => s + d.total_cost,
+                      0,
+                    );
+                    const totalNeurons = daily.reduce(
+                      (s, d) => s + d.total_neurons,
+                      0,
+                    );
                     const avgDaily = totalCost / daily.length;
                     const avgNeurons = totalNeurons / daily.length;
                     return [
@@ -448,7 +553,9 @@ export default function InferencePage() {
                   })()}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-4">Need 2+ days of data</p>
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Need 2+ days of data
+                </p>
               )}
             </div>
 
@@ -461,8 +568,12 @@ export default function InferencePage() {
                 <MessageSquare className="w-5 h-5 text-emerald-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-foreground block">Open Jarvis Chat</span>
-                <span className="text-[11px] text-muted-foreground">Talk to AI assistant</span>
+                <span className="text-sm font-medium text-foreground block">
+                  Open Jarvis Chat
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Talk to AI assistant
+                </span>
               </div>
             </Link>
           </motion.div>
@@ -473,17 +584,27 @@ export default function InferencePage() {
           <motion.div variants={item} className="glass-card overflow-hidden">
             <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-red-400" />
-              <span className="text-sm font-medium text-foreground">Recent Errors (24h)</span>
-              <span className="text-xs text-muted-foreground ml-auto">{errors.length} errors</span>
+              <span className="text-sm font-medium text-foreground">
+                Recent Errors (24h)
+              </span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {errors.length} errors
+              </span>
             </div>
             <div className="divide-y divide-border/20">
               {errors.map((err, i) => (
                 <div key={i} className="px-4 py-2.5 flex items-start gap-3">
                   <span className="text-[10px] text-muted-foreground font-mono shrink-0 mt-0.5 w-14">
-                    {new Date(err.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                    {new Date(err.timestamp).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs text-red-400 block truncate">{err.error_message}</span>
+                    <span className="text-xs text-red-400 block truncate">
+                      {err.error_message}
+                    </span>
                     <span className="text-[10px] text-muted-foreground/60">
                       {err.task} · {err.latency_ms.toFixed(0)}ms
                     </span>
@@ -522,7 +643,11 @@ function MetricCard({
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
       <div className="font-mono text-lg font-semibold text-foreground truncate">
-        {loading ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : value}
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        ) : (
+          value
+        )}
       </div>
       <div className="text-xs text-muted-foreground mt-1">{sub}</div>
     </div>
