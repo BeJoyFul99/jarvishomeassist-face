@@ -12,15 +12,22 @@ import {
   ChevronRight,
   Lightbulb,
   Shield,
+  X,
+  Pin,
+  AlertTriangle,
 } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
 import { useFleet } from "@/hooks/useFleet";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
+import { AnimatePresence } from "framer-motion";
 import CircadianSlider from "@/components/home/CircadianSlider";
 import DevStatusBadge from "@/components/home/DevStatusBadge";
 import NetworkPulse from "@/components/home/NetworkPulse";
 import PomodoroRing from "@/components/home/PomodoroRing";
 import EnergyHeatmap from "@/components/home/EnergyHeatmap";
+import WeatherWidget from "@/components/home/WeatherWidget";
+import { ANNOUNCEMENTS, Announcement } from "@/lib/constants";
 
 const container = {
   hidden: { opacity: 0 },
@@ -28,26 +35,79 @@ const container = {
 };
 const item = {
   hidden: { opacity: 0, y: 16, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring" as const, stiffness: 300, damping: 24 },
+  },
 };
 
 const QUICK_LINKS = [
-  { label: "Smart Home", icon: Lightbulb, path: "/home/devices", color: "text-amber" },
+  {
+    label: "Smart Home",
+    icon: Lightbulb,
+    path: "/home/devices",
+    color: "text-amber",
+  },
   { label: "Network", icon: Wifi, path: "/home/network", color: "text-cyan" },
-  { label: "Media & Files", icon: Cloud, path: "/home/media", color: "text-magenta" },
-];
-
-const ANNOUNCEMENTS = [
-  { text: "Wi-Fi maintenance scheduled for Saturday 2 AM", time: "2h ago", type: "info" as const },
-  { text: "New shared photos uploaded to Family Album", time: "5h ago", type: "success" as const },
-  { text: "Smart thermostat set to eco mode", time: "1d ago", type: "info" as const },
+  {
+    label: "Media & Files",
+    icon: Cloud,
+    path: "/home/media",
+    color: "text-magenta",
+  },
 ];
 
 const HomePage = () => {
   const { user } = useAuthStore();
   const { aggregated } = useFleet();
   const router = useRouter();
-  const displayName = user?.displayName || "User";
+  const [selectedAnnouncement, setSelectedAnnouncement] =
+    useState<Announcement | null>(null);
+  const [visibleIndex, setVisibleIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Handle manual scroll with non-passive listener to prevent page scroll
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (Math.abs(e.deltaY) > 10) {
+        handleScroll(e.deltaY);
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [visibleIndex]); // Re-bind or just use a stable handleScroll
+
+  const handleScroll = (delta: number) => {
+    setIsExpanded(false); // Collapse on scroll
+    if (delta > 0) {
+      setVisibleIndex((prev) => (prev + 1) % ANNOUNCEMENTS.length);
+    } else {
+      setVisibleIndex(
+        (prev) => (prev - 1 + ANNOUNCEMENTS.length) % ANNOUNCEMENTS.length,
+      );
+    }
+  };
+
+  const getVisibleAnnouncements = () => {
+    const items = [];
+    for (let i = 0; i < 3; i++) {
+      items.push(ANNOUNCEMENTS[(visibleIndex + i) % ANNOUNCEMENTS.length]);
+    }
+    return items;
+  };
+
+  const displayName = user?.display_name || "User";
 
   const hour = new Date().getHours();
   const greeting =
@@ -55,143 +115,308 @@ const HomePage = () => {
   const now = new Date();
 
   return (
-    <motion.div
-      variants={container}
-      initial="hidden"
-      animate="show"
-      className="p-4 md:p-6 max-w-7xl mx-auto space-y-6"
-    >
-      {/* Greeting */}
-      <motion.div variants={item} className="space-y-1">
-        <h1 className="text-2xl font-semibold text-foreground">
-          {greeting}, {displayName}
-        </h1>
-        <p className="text-sm text-muted-foreground font-mono">
-          {now.toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-      </motion.div>
-
-      {/* Status Cards */}
+    <>
       <motion.div
-        variants={item}
-        className="grid grid-cols-2 md:grid-cols-4 gap-3"
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="pt-2 p-4 md:p-6 max-w-7xl mx-auto space-y-4"
       >
-        <div className="glass-card p-4 space-y-2">
-          <div className="flex items-center gap-2 text-amber">
-            <Sun className="w-5 h-5" />
-            <span className="text-xs font-mono text-muted-foreground">Weather</span>
-          </div>
-          <p className="text-xl font-semibold text-foreground">72°F</p>
-          <p className="text-[11px] text-muted-foreground">Partly Cloudy</p>
-        </div>
-
-        <div className="glass-card p-4 space-y-2">
-          <div className="flex items-center gap-2 text-cyan">
-            {aggregated.onlineNodes > 0 ? (
-              <Wifi className="w-5 h-5" />
-            ) : (
-              <WifiOff className="w-5 h-5" />
-            )}
-            <span className="text-xs font-mono text-muted-foreground">Internet</span>
-          </div>
-          <p className="text-xl font-semibold text-foreground">
-            {aggregated.onlineNodes > 0 ? "Online" : "Offline"}
+        {/* Greeting */}
+        <motion.div variants={item} className="space-y-0.5">
+          <h1 className="text-2xl font-semibold text-foreground">
+            {greeting}, {displayName}
+          </h1>
+          <p className="text-sm text-muted-foreground font-mono">
+            {now.toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
           </p>
-          <p className="text-[11px] text-muted-foreground">All systems normal</p>
-        </div>
+        </motion.div>
 
-        <div className="glass-card p-4 space-y-2">
-          <div className="flex items-center gap-2 text-emerald">
-            <Shield className="w-5 h-5" />
-            <span className="text-xs font-mono text-muted-foreground">Security</span>
-          </div>
-          <p className="text-xl font-semibold text-foreground">Secure</p>
-          <p className="text-[11px] text-muted-foreground">VPN active</p>
-        </div>
+        {/* Status Cards */}
+        <motion.div
+          variants={item}
+          className="grid grid-cols-2 md:grid-cols-4 gap-3"
+        >
+          <WeatherWidget />
 
-        <div className="glass-card p-4 space-y-2">
-          <div className="flex items-center gap-2 text-magenta">
-            <Thermometer className="w-5 h-5" />
-            <span className="text-xs font-mono text-muted-foreground">Home Temp</span>
-          </div>
-          <p className="text-xl font-semibold text-foreground">71°F</p>
-          <p className="text-[11px] text-muted-foreground">Thermostat: Auto</p>
-        </div>
-      </motion.div>
-
-      {/* Circadian + Pomodoro + Dev Status row */}
-      <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <CircadianSlider />
-        <PomodoroRing />
-        <div className="space-y-4">
-          <DevStatusBadge />
-          <EnergyHeatmap />
-        </div>
-      </motion.div>
-
-      {/* Network Pulse */}
-      <motion.div variants={item}>
-        <NetworkPulse />
-      </motion.div>
-
-      {/* Quick Links */}
-      <motion.div variants={item}>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
-          Quick Access
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {QUICK_LINKS.map((link) => (
-            <motion.button
-              key={link.path}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => router.push(link.path)}
-              className="glass-card p-4 flex items-center gap-3 text-left hover:bg-secondary/50 transition-colors"
-            >
-              <div className={`p-2 rounded-lg bg-secondary ${link.color}`}>
-                <link.icon className="w-5 h-5" />
-              </div>
-              <span className="text-sm font-medium text-foreground flex-1">
-                {link.label}
-              </span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Announcements */}
-      <motion.div variants={item}>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" /> Household Updates
-        </h2>
-        <div className="space-y-2">
-          {ANNOUNCEMENTS.map((a, i) => (
+          <motion.div
+            whileHover={{ scale: 1.02, y: -1 }}
+            className="glass-card relative overflow-hidden group"
+          >
             <motion.div
-              key={i}
-              variants={item}
-              className="glass-card p-3 flex items-start gap-3"
-            >
-              <div
-                className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                  a.type === "success" ? "bg-emerald" : "bg-cyan"
-                }`}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">{a.text}</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> {a.time}
-                </p>
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -top-10 -right-10 w-32 h-32 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none transition-colors duration-500 group-hover:bg-cyan-500/40"
+            />
+            <div className="relative z-10 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-cyan">
+                {aggregated.onlineNodes > 0 ? (
+                  <div className="relative">
+                    <Wifi className="w-5 h-5 animate-pulse relative z-10" />
+                    <div className="absolute inset-0 bg-cyan-500/30 blur animate-ping rounded-full" />
+                  </div>
+                ) : (
+                  <WifiOff className="w-5 h-5" />
+                )}
+                <span className="text-xs font-mono text-muted-foreground">
+                  Internet
+                </span>
               </div>
-            </motion.div>
-          ))}
-        </div>
+              <p className="text-xl font-semibold text-foreground">
+                {aggregated.onlineNodes > 0 ? "Online" : "Offline"}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                All systems normal
+              </p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            whileHover={{ scale: 1.02, y: -1 }}
+            className="glass-card relative overflow-hidden group"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
+              transition={{
+                duration: 10,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 1,
+              }}
+              className="absolute -top-8 -right-8 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none transition-colors duration-500 group-hover:bg-emerald-500/40"
+            />
+            <div className="relative z-10 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-emerald">
+                <Shield className="w-5 h-5" />
+                <span className="text-xs font-mono text-muted-foreground">
+                  Security
+                </span>
+              </div>
+              <p className="text-xl font-semibold text-foreground">Secure</p>
+              <p className="text-[11px] text-muted-foreground">VPN active</p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            whileHover={{ scale: 1.02, y: -1 }}
+            className="glass-card relative overflow-hidden group"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.5, 0.3] }}
+              transition={{
+                duration: 9,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 2,
+              }}
+              className="absolute -bottom-10 -right-10 w-32 h-32 bg-magenta/20 rounded-full blur-3xl pointer-events-none transition-colors duration-500 group-hover:bg-magenta/40"
+            />
+            <div className="relative z-10 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-magenta">
+                <Thermometer className="w-5 h-5" />
+                <span className="text-xs font-mono text-muted-foreground">
+                  Home Temp
+                </span>
+              </div>
+              <p className="text-xl font-semibold text-foreground">71°F</p>
+              <p className="text-[11px] text-muted-foreground">
+                Thermostat: Auto
+              </p>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Quick Links */}
+        <motion.div variants={item}>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3 mt-2">
+            Quick Access
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {QUICK_LINKS.map((link) => (
+              <motion.button
+                key={link.path}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => router.push(link.path)}
+                className="glass-card p-4 flex items-center gap-3 text-left hover:bg-secondary/50 transition-colors"
+              >
+                <div className={`p-2 rounded-lg bg-secondary ${link.color}`}>
+                  <link.icon className="w-5 h-5" />
+                </div>
+                <span className="text-sm font-medium text-foreground flex-1">
+                  {link.label}
+                </span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Announcements Stack */}
+        <motion.div variants={item} className="relative">
+          <div className="flex items-center justify-between mb-3 mt-2">
+            <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" /> Household Updates
+            </h2>
+            <motion.button
+              whileHover={{ x: 3 }}
+              onClick={() => router.push("/home/announcements")}
+              className="text-[10px] uppercase tracking-wider text-cyan hover:text-cyan/80 font-bold flex items-center gap-1"
+            >
+              View All <ChevronRight className="w-3 h-3" />
+            </motion.button>
+          </div>
+
+          <div
+            ref={scrollRef}
+            className="h-[280px] relative overflow-hidden flex flex-col items-center w-full cursor-ns-resize touch-none"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            <AnimatePresence mode="popLayout" initial={false}>
+              {getVisibleAnnouncements().map((a: Announcement, i: number) => (
+                <motion.button
+                  key={a.id}
+                  layout="position"
+                  drag="y"
+                  dragConstraints={{ top: 0, bottom: 0 }}
+                  dragElastic={0.1}
+                  onDragEnd={(_, info) => {
+                    if (info.offset.y < -50) handleScroll(1);
+                    if (info.offset.y > 50) handleScroll(-1);
+                  }}
+                  initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                  animate={{
+                    opacity: i === 1 ? 1 : 0.4,
+                    y: i === 0 ? 0 : i === 1 ? 80 : 160, // Refined vertical spacing
+                    scale: i === 1 ? 1 : 0.85,
+                    zIndex: i === 1 ? 30 : i === 0 ? 20 : 10,
+                    filter: i !== 1 ? "blur(1.5px)" : "blur(0px)",
+                  }}
+                  exit={{ opacity: 0, scale: 0.8, filter: "blur(4px)" }}
+                  transition={{ 
+                    type: "tween", 
+                    ease: "circOut",
+                    duration: 0.4,
+                    opacity: { duration: 0.2 },
+                  }}
+                  onClick={() => {
+                    if (i === 1) {
+                      setIsExpanded(!isExpanded);
+                    } else if (i === 0) {
+                      handleScroll(-1);
+                    } else {
+                      handleScroll(1);
+                    }
+                  }}
+                  className={`absolute w-full glass-card p-4 flex flex-col gap-4 text-left group overflow-hidden ${
+                    i === 1 && isExpanded ? 'h-auto z-50 ring-1 ring-cyan/30' : 'h-[100px] z-20'
+                  } ${i === 1 ? 'shadow-2xl' : 'opacity-40'}`}
+                >
+                  <div className="flex items-center gap-4 w-full">
+                    <div
+                      className={`p-2.5 rounded-xl bg-secondary ${a.color} group-hover:scale-110 transition-transform shrink-0 relative`}
+                    >
+                      <a.icon className="w-5 h-5" />
+                      {a.pinned && (
+                        <Pin className="absolute -top-1 -right-1 w-3 h-3 text-cyan fill-cyan" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-bold text-foreground truncate">
+                          {a.title}
+                        </h4>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase tracking-tighter ${
+                              a.authorRole === "Assistant"
+                                ? "bg-cyan/10 text-cyan border border-cyan/20"
+                                : "bg-magenta/10 text-magenta border border-magenta/20"
+                            }`}
+                          >
+                            {a.authorRole}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span className="font-medium text-foreground/70">
+                          {a.authorName}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5" /> {a.time}
+                        </span>
+                      </div>
+                    </div>
+                    {i === 1 && (
+                      <ChevronRight
+                        className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                      />
+                    )}
+                  </div>
+
+                  {i === 1 && isExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-4 pt-2 border-t border-white/5"
+                    >
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {a.fullContent || a.desc}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsExpanded(false);
+                          }}
+                          className="flex-1 py-2 rounded-lg bg-cyan text-black text-[10px] font-bold shadow-lg shadow-cyan/10 active:opacity-90"
+                        >
+                          Acknowledge
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push("/home/announcements");
+                          }}
+                          className="px-4 py-2 rounded-lg bg-secondary text-foreground text-[10px] font-medium hover:bg-secondary/70 border border-white/5"
+                        >
+                          View All
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </motion.button>
+              ))}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+
+        {/* Circadian + Pomodoro + Dev Status row */}
+        <motion.div
+          variants={item}
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2"
+        >
+          <CircadianSlider />
+          <PomodoroRing />
+          <div className="space-y-4">
+            <DevStatusBadge />
+            <EnergyHeatmap />
+          </div>
+        </motion.div>
+
+        {/* Network Pulse */}
+        <motion.div variants={item}>
+          <NetworkPulse />
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </>
   );
 };
 

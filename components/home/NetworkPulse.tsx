@@ -35,7 +35,7 @@ const Sparkline = ({ data }: { data: number[] }) => {
   const points = data.map((v, i) => `${i * step},${h - (v / max) * h}`).join(" ");
 
   return (
-    <svg width={w} height={h} className="overflow-visible">
+    <svg width={w} height={h} className="overflow-hidden">
       <motion.polyline
         points={points}
         fill="none"
@@ -59,7 +59,7 @@ const NetworkPulse = () => {
       setDevices((prev) =>
         prev.map((d) => ({
           ...d,
-          latency: [...d.latency.slice(1), d.latency[0] + Math.floor(Math.random() * 6 - 3)],
+          latency: [...d.latency.slice(1), Math.max(1, d.latency[d.latency.length - 1] + Math.floor(Math.random() * 6 - 3))],
         }))
       );
     }, 2000);

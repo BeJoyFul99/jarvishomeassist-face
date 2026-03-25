@@ -4,12 +4,12 @@ import { persist } from "zustand/middleware";
 export type UserRole = "family_member" | "administrator" | "guest";
 
 export interface AuthUser {
-  displayName: string;
+  display_name: string;
   email: string;
   role: UserRole;
   resourcePerms: string[];
   permExpiresAt: string | null;
-}
+} 
 
 interface JwtPayload {
   sub?: string;
@@ -106,7 +106,7 @@ export const useAuthStore = create<AuthState>()(
         if (!payload) return;
 
         const user: AuthUser = {
-          displayName: payload.name || payload.sub || "User",
+          display_name: payload.name || payload.sub || "User",
           email: payload.email || "",
           role: mapRole(payload.role),
           resourcePerms: payload.resource_perms || [],

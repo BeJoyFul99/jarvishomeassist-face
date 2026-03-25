@@ -129,7 +129,10 @@ export default function LogsPage() {
   }, [page, perPage, levelFilter, componentFilter, searchQuery, authHeaders]);
 
   useEffect(() => {
-    if (!streaming) fetchLogs(1);
+    if (!streaming) {
+      setLogs([]); // clear to trigger the main loading spinner on filter change
+      fetchLogs(1);
+    }
   }, [levelFilter, componentFilter, searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -248,14 +251,16 @@ export default function LogsPage() {
     return (
       <div
         key={`${entry.timestamp}-${idx}`}
-        className="flex items-start gap-3 px-4 py-1.5 hover:bg-secondary/30 font-mono text-xs border-b border-border/30 last:border-0"
+        className="flex flex-col sm:flex-row items-start gap-1 sm:gap-3 px-3 sm:px-4 py-2 sm:py-1.5 hover:bg-secondary/30 font-mono text-xs border-b border-border/30 last:border-0"
       >
-        <span className="text-muted-foreground shrink-0 w-16">{formatTime(entry.timestamp)}</span>
-        <span className={`shrink-0 w-12 px-1.5 py-0.5 rounded text-center text-[10px] font-semibold uppercase ${style.bg} ${style.text}`}>
-          {entry.level}
-        </span>
-        <span className="shrink-0 w-20 text-primary truncate">{entry.component}</span>
-        <span className="text-foreground flex-1 break-all">{entry.message}</span>
+        <div className="flex items-center gap-2 sm:contents w-full">
+          <span className="text-muted-foreground shrink-0 sm:w-16 tabular-nums">{formatTime(entry.timestamp)}</span>
+          <span className={`shrink-0 w-12 px-1.5 py-0.5 rounded text-center text-[10px] font-semibold uppercase ${style.bg} ${style.text}`}>
+            {entry.level}
+          </span>
+          <span className="shrink-0 sm:w-20 text-primary truncate max-w-[100px] sm:max-w-none italic sm:not-italic opacity-80 sm:opacity-100">{entry.component}</span>
+        </div>
+        <span className="text-foreground flex-1 wrap-break-word sm:break-all leading-relaxed sm:leading-normal mt-0.5 sm:mt-0 text-[13px]">{entry.message}</span>
       </div>
     );
   };
@@ -349,8 +354,13 @@ export default function LogsPage() {
       )}
 
       {/* Log output */}
-      <motion.div variants={item} className="glass-card overflow-hidden">
-        {loading && !streaming ? (
+      <motion.div variants={item} className="glass-card overflow-hidden relative">
+        {loading && !streaming && displayLogs.length > 0 && (
+          <div className="absolute top-2 right-4 flex items-center gap-1.5 text-[10px] text-muted-foreground bg-background/80 backdrop-blur-md px-2 py-1 rounded-md z-10 border border-border/50 shadow-sm">
+            <Loader2 className="w-3 h-3 animate-spin" /> Updating
+          </div>
+        )}
+        {loading && !streaming && displayLogs.length === 0 ? (
           <div className="flex items-center justify-center gap-2 p-12 text-muted-foreground">
             <Loader2 className="w-4 h-4 animate-spin" />
             <span className="text-sm">Loading logs...</span>
@@ -361,8 +371,8 @@ export default function LogsPage() {
           </div>
         ) : (
           <>
-            {/* Header row */}
-            <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-secondary/20 font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+            {/* Header row (desktop only) */}
+            <div className="hidden sm:flex items-center gap-3 px-4 py-2 border-b border-border bg-secondary/20 font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
               <span className="w-16">Time</span>
               <span className="w-12 text-center">Level</span>
               <span className="w-20">Component</span>
@@ -372,7 +382,7 @@ export default function LogsPage() {
             {/* Log entries */}
             <div
               ref={streamContainerRef}
-              className={`overflow-y-auto ${streaming ? "max-h-[calc(100vh-320px)]" : "max-h-[calc(100vh-380px)]"}`}
+              className={`overflow-y-auto ${streaming ? "max-h-[calc(100vh-280px)]" : "max-h-[calc(100vh-340px)]"}`}
               onScroll={() => {
                 if (streaming && streamContainerRef.current) {
                   const el = streamContainerRef.current;

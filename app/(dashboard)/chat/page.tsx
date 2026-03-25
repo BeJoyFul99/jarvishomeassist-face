@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   ArrowDown,
   Menu,
+  User,
+  Box,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -28,6 +30,8 @@ import {
   type ChatRoom,
 } from "@/store/useChatStore";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import Image from "next/image";
+import { toast } from "sonner";
 
 // ── Animations ───────────────────────────────────────────────
 
@@ -64,22 +68,30 @@ export default function ChatPage() {
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [showRoomsMobile, setShowRoomsMobile] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
-  const [newRoomType, setNewRoomType] = useState<"direct_ai" | "group">(
+  const [newRoomType, setNewRoomType] = useState<"direct_ai" | "group" | "DM">(
     "direct_ai",
   );
   const [isMobile, setIsMobile] = useState(false);
   const [membersList, setMembersList] = useState<
-    Array<{ id: number; email: string; display_name: string; is_online?: boolean }>
+    Array<{
+      id: number;
+      email: string;
+      display_name: string;
+      is_online?: boolean;
+    }>
   >([]);
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
+  const [showMembersMobile, setShowMembersMobile] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const forceScrollRef = useRef(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,10 +112,10 @@ export default function ChatPage() {
   // ── Mention candidates ─────────────────────────────────
 
   const mentionCandidates = useMemo(() => {
-    // Always include Jarvis as a mentionable, exclude self
+    // Always include Jarvis as a mentionable at the top, exclude self
     const allMentionable = [
-      { id: 0, display_name: "jarvis", email: "ai@jarvis" },
-      ...membersList.filter((m) => m.email !== user?.email),
+      ...membersList.filter((m) => m.id === 999),
+      ...membersList.filter((m) => m.email !== user?.email && m.id !== 999),
     ];
     if (mentionQuery === null) return [];
     const q = mentionQuery.toLowerCase();
@@ -167,7 +179,8 @@ export default function ChatPage() {
         if (res.ok) {
           const data = await res.json();
           setRooms(data);
-          if (data.length > 0 && !activeRoomId) {
+          const currentActive = useChatStore.getState().activeRoomId;
+          if (data.length > 0 && !currentActive) {
             setActiveRoom(data[0].id);
           }
         }
@@ -176,8 +189,25 @@ export default function ChatPage() {
       }
     };
     loadRooms();
-  }, [authHeaders, setRooms, setActiveRoom, activeRoomId]);
+  }, [authHeaders, setRooms, setActiveRoom]);
+  // ── Auto-scroll ──────────────────────────────────────────
 
+  const activeMessages = useMemo(
+    () => (activeRoomId ? messages[activeRoomId] || [] : []),
+    [activeRoomId, messages],
+  );
+  const activeStreaming = activeRoomId
+    ? streamingContent[activeRoomId]
+    : undefined;
+  const activeAiStatus = activeRoomId ? aiStatus[activeRoomId] : undefined;
+  const activeTyping = activeRoomId ? typingUsers[activeRoomId] || [] : [];
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior,
+    });
+  }, []);
   // ── Load messages when room changes ──────────────────────
 
   useEffect(() => {
@@ -196,39 +226,42 @@ export default function ChatPage() {
       } catch {
         // silent
       } finally {
+        forceScrollRef.current = true;
         setLoading(false);
       }
     };
     loadMessages();
     decrementUnread(activeRoomId);
-  }, [activeRoomId, authHeaders, setMessages, decrementUnread, setLoading]);
-
-  // ── Auto-scroll ──────────────────────────────────────────
-
-  const activeMessages = useMemo(() => activeRoomId ? messages[activeRoomId] || [] : [], [activeRoomId, messages]);
-  const activeStreaming = activeRoomId
-    ? streamingContent[activeRoomId]
-    : undefined;
-  const activeAiStatus = activeRoomId ? aiStatus[activeRoomId] : undefined;
-  const activeTyping = activeRoomId ? typingUsers[activeRoomId] || [] : [];
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior,
-    });
-  }, []);
+  }, [
+    activeRoomId,
+    authHeaders,
+    setMessages,
+    decrementUnread,
+    setLoading,
+    scrollToBottom,
+  ]);
 
   // Auto-scroll on new messages (only if already near bottom)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    // Auto-scroll if user is within 150px of bottom
-    if (distFromBottom < 150) {
-      scrollToBottom();
+
+    if (forceScrollRef.current && !loading) {
+      setTimeout(() => {
+        scrollToBottom("auto");
+      }, 20); // allow layout flush
+      forceScrollRef.current = false;
+      return;
     }
-  }, [activeMessages.length, activeStreaming, scrollToBottom]);
+
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // Auto-scroll if user is within 300px of bottom
+    if (distFromBottom < 300) {
+      setTimeout(() => {
+        scrollToBottom("smooth");
+      }, 20);
+    }
+  }, [activeMessages.length, activeStreaming, loading, scrollToBottom]);
 
   // Track scroll position to show/hide scroll-to-bottom button
   useEffect(() => {
@@ -245,10 +278,18 @@ export default function ChatPage() {
   // ── Mark as seen ─────────────────────────────────────────
 
   const lastRealMsgId = useMemo(() => {
-    for (let i = activeMessages.length - 1; i >= 0; i--) {
-      if (activeMessages[i].id > 0) return activeMessages[i].id;
+    let latestId = 0;
+    let latestTime = 0;
+    for (const msg of activeMessages) {
+      if (msg.id > 0) {
+        const time = new Date(msg.created_at).getTime();
+        if (time > latestTime) {
+          latestTime = time;
+          latestId = msg.id;
+        }
+      }
     }
-    return 0;
+    return latestId;
   }, [activeMessages]);
 
   useEffect(() => {
@@ -260,6 +301,35 @@ export default function ChatPage() {
     }).catch(() => {});
   }, [activeRoomId, lastRealMsgId, authHeaders]);
 
+  const roomMembers = useMemo(() => {
+    if (!activeRoom) return [];
+
+    // The main Family Chat typically includes everyone on the server
+    if (activeRoom.name === "Family Chat" && activeRoom.type === "group") {
+      return membersList;
+    }
+
+    const memberIds = new Set<number>();
+
+    // Always include the room owner
+    if (activeRoom.owner_id) memberIds.add(activeRoom.owner_id);
+
+    // Direct AI rooms naturally include the AI
+    if (activeRoom.type === "direct_ai") {
+      memberIds.add(999); // AI ID
+    }
+
+    // Add specifically tagged participants
+    if (activeRoom.participants) {
+      activeRoom.participants.forEach((p) => memberIds.add(p.id));
+    }
+
+    // Safety fallback: if we have zero participants somehow, just return the global list
+    if (memberIds.size === 0) return membersList;
+
+    return membersList.filter((m) => memberIds.has(m.id));
+  }, [activeRoom, membersList]);
+
   // ── Send message ─────────────────────────────────────────
 
   // Counter for optimistic temp IDs (negative to avoid colliding with real IDs)
@@ -267,8 +337,10 @@ export default function ChatPage() {
 
   const handleSend = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if ((!input.trim() && !imageFile) || !activeRoomId || sending) return;
+    if ((!input.trim() && !imageFile) || !activeRoomId || sendingRef.current)
+      return;
 
+    sendingRef.current = true;
     setSending(true);
     sendTyping(false);
 
@@ -281,8 +353,8 @@ export default function ChatPage() {
       id: tempId,
       room_id: activeRoomId,
       thread_id: null,
-      sender_id: null,
-      sender_name: user?.displayName || "",
+      sender_id: null, // Deduplication relies on email matching from WS
+      sender: user as any,
       role: "user",
       status: "sending",
       content,
@@ -298,6 +370,9 @@ export default function ChatPage() {
     setInput("");
     setReplyTo(null);
     resetTextarea();
+
+    // Auto-scroll so the user immediately sees the message they just sent
+    setTimeout(() => scrollToBottom("smooth"), 50);
     const prevImageFile = imageFile;
     if (imageFile) {
       setImageFile(null);
@@ -311,7 +386,8 @@ export default function ChatPage() {
         formData.append("content", content);
         formData.append("type", "image");
         formData.append("media", prevImageFile);
-        if (currentReplyTo?.id) formData.append("reply_to_id", currentReplyTo.id.toString());
+        if (currentReplyTo?.id)
+          formData.append("reply_to_id", currentReplyTo.id.toString());
         res = await fetch(`/api/chat/rooms/${activeRoomId}/messages`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
@@ -336,11 +412,15 @@ export default function ChatPage() {
         updateMessage(activeRoomId, tempId, msg);
       } else {
         // Mark as failed
-        updateMessage(activeRoomId, tempId, { ...optimistic, status: "failed" });
+        updateMessage(activeRoomId, tempId, {
+          ...optimistic,
+          status: "failed",
+        });
       }
     } catch {
       updateMessage(activeRoomId, tempId, { ...optimistic, status: "failed" });
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -429,9 +509,12 @@ export default function ChatPage() {
         setShowCreateModal(false);
         setNewRoomName("");
         setSelectedMembers([]);
+        toast.success("Chat created successfully");
       }
-    } catch {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
       // silent
+      toast.error(err);
     }
   };
 
@@ -450,9 +533,16 @@ export default function ChatPage() {
   // ── Date separators ─────────────────────────────────────
 
   const messagesWithDates = useMemo(() => {
-    const result: Array<{ type: "date"; label: string } | { type: "msg"; msg: ChatMessage }> = [];
+    const sortedMessages = [...activeMessages].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+
+    const result: Array<
+      { type: "date"; label: string } | { type: "msg"; msg: ChatMessage }
+    > = [];
     let lastDate = "";
-    for (const msg of activeMessages) {
+    for (const msg of sortedMessages) {
       const d = new Date(msg.created_at);
       const dateKey = d.toDateString();
       if (dateKey !== lastDate) {
@@ -463,11 +553,17 @@ export default function ChatPage() {
         let label: string;
         if (dateKey === today.toDateString()) label = "Today";
         else if (dateKey === yesterday.toDateString()) label = "Yesterday";
-        else label = d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+        else
+          label = d.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "short",
+            day: "numeric",
+          });
         result.push({ type: "date", label });
       }
       result.push({ type: "msg", msg });
     }
+
     return result;
   }, [activeMessages]);
 
@@ -506,7 +602,9 @@ export default function ChatPage() {
                   <MessageSquare className="w-6 h-6 text-muted-foreground/50" />
                 </div>
                 <p className="text-sm text-muted-foreground">No chats yet</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Create one to get started</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Create one to get started
+                </p>
               </div>
             ) : (
               rooms.map((room) => (
@@ -583,7 +681,7 @@ export default function ChatPage() {
       </AnimatePresence>
 
       {/* ── Message Area ─────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-linear-to-b from-card/30 via-background/80 to-background">
         {/* Header */}
         <div className="bg-card/60 backdrop-blur-xl border-b border-border/40 px-4 py-3 shrink-0">
           <div className="flex items-center gap-1.5">
@@ -604,7 +702,7 @@ export default function ChatPage() {
                   className="p-1.5 rounded-xl hover:bg-secondary/50 transition-colors"
                   title="Switch chat"
                 >
-                  <ChevronLeft className="w-5 h-5 text-foreground" />
+                  <Box className="w-5 h-5 text-foreground" />
                 </button>
               </>
             )}
@@ -618,7 +716,8 @@ export default function ChatPage() {
               ) : (
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 relative">
                   <Bot className="w-5 h-5 text-emerald-400" />
-                  {(activeAiStatus === "thinking" || activeAiStatus === "responding") && (
+                  {(activeAiStatus === "thinking" ||
+                    activeAiStatus === "responding") && (
                     <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
                   )}
                 </div>
@@ -634,16 +733,18 @@ export default function ChatPage() {
                   </div>
                 ) : activeRoom?.type === "direct_ai" ? (
                   <p className="text-xs text-muted-foreground">AI Assistant</p>
-                ) : activeRoom?.type === "group" ? (
+                ) : activeRoom ? (
                   <p className="text-xs text-muted-foreground">
-                    {membersList.length > 0 ? `${membersList.length} members` : "Group chat"}
+                    {roomMembers.length > 0
+                      ? `${roomMembers.length} member${roomMembers.length === 1 ? "" : "s"}`
+                      : "Private chat"}
                   </p>
                 ) : null}
               </div>
             </div>
 
-            {/* Members panel toggle (group only, desktop) */}
-            {activeRoom?.type === "group" && !isMobile && (
+            {/* Members panel toggle (desktop) */}
+            {activeRoom && !isMobile && (
               <button
                 type="button"
                 onClick={() => setShowMembersPanel((s) => !s)}
@@ -657,108 +758,129 @@ export default function ChatPage() {
                 <Users className="w-5 h-5" />
               </button>
             )}
+
+            {/* Mobile members toggle */}
+            {activeRoom && isMobile && (
+              <button
+                type="button"
+                onClick={() => setShowMembersMobile(true)}
+                className="p-2 rounded-xl hover:bg-secondary/50 text-muted-foreground transition-colors"
+                title="Room members"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-hidden relative">
-        <div
-          ref={scrollRef}
-          className="absolute inset-0 overflow-y-auto px-4 py-4 space-y-1"
-        >
-          {loading && (
-            <div className="flex justify-center py-16">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
-                <span className="text-xs text-muted-foreground">Loading messages...</span>
+          <div
+            ref={scrollRef}
+            className="absolute inset-0 overflow-y-auto px-4 py-4 space-y-1"
+          >
+            {loading && (
+              <div className="flex justify-center py-16">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+                  <span className="text-xs text-muted-foreground">
+                    Loading messages...
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {!loading && activeMessages.length === 0 && (
-            <EmptyState
-              roomType={activeRoom?.type}
-              onAction={() => textareaRef.current?.focus()}
-            />
-          )}
+            {!loading && activeMessages.length === 0 && (
+              <EmptyState
+                roomType={activeRoom?.type}
+                onAction={() => textareaRef.current?.focus()}
+              />
+            )}
 
-          {!loading &&
-            messagesWithDates.map((entry, idx) =>
-              entry.type === "date" ? (
-                <div key={`date-${idx}`} className="flex items-center justify-center py-3">
-                  <div className="px-3 py-1 rounded-full bg-secondary/50 border border-border/30">
-                    <span className="text-[11px] font-medium text-muted-foreground">
-                      {entry.label}
+            {!loading &&
+              messagesWithDates.map((entry, idx) =>
+                entry.type === "date" ? (
+                  <div
+                    key={`date-${idx}`}
+                    className="flex items-center justify-center py-3"
+                  >
+                    <div className="px-3 py-1 rounded-full bg-secondary/50 border border-border/30">
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {entry.label}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <MessageBubble
+                    key={entry.msg.id}
+                    msg={entry.msg}
+                    isOwn={
+                      entry.msg.sender_id !== null &&
+                      entry.msg!.sender?.email === user?.email
+                    }
+                    isGroup={activeRoom?.type === "group"}
+                    onReply={() => setReplyTo(entry.msg)}
+                    onScrollToReply={scrollToMessage}
+                  />
+                ),
+              )}
+
+            {/* Streaming AI response */}
+            {activeStreaming && (
+              <motion.div {...fadeSlideUp} className="flex justify-start">
+                <div className="max-w-lg rounded-2xl rounded-bl-md px-4 py-3 text-sm bg-linear-to-br from-emerald-500/8 to-cyan-500/5 border border-emerald-500/15">
+                  <div className="flex items-center gap-2 px-0.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-400">
+                      Jarvis
+                    </span>
+                  </div>
+                  <div className="text-foreground/90 leading-relaxed prose-sm">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {activeStreaming}
+                    </ReactMarkdown>
+                  </div>
+                  <span className="inline-block w-2 h-4 bg-emerald-400/60 animate-pulse ml-0.5 rounded-sm" />
+                </div>
+              </motion.div>
+            )}
+
+            {/* AI thinking indicator */}
+            {activeAiStatus === "thinking" && !activeStreaming && (
+              <motion.div {...fadeSlideUp} className="flex justify-start">
+                <div className="rounded-2xl rounded-bl-md px-4 py-3 bg-linear-to-br from-emerald-500/8 to-cyan-500/5 border border-emerald-500/15">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-400">
+                      Jarvis
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <TypingDots size="md" />
+                    <span className="text-xs text-muted-foreground ml-1">
+                      Thinking...
                     </span>
                   </div>
                 </div>
-              ) : (
-                <MessageBubble
-                  key={entry.msg.id}
-                  msg={entry.msg}
-                  isOwn={
-                    entry.msg.sender_id !== null &&
-                    entry.msg.sender_name === user?.displayName
-                  }
-                  isGroup={activeRoom?.type === "group"}
-                  onReply={() => setReplyTo(entry.msg)}
-                  onScrollToReply={scrollToMessage}
-                />
-              ),
+              </motion.div>
             )}
+          </div>
 
-          {/* Streaming AI response */}
-          {activeStreaming && (
-            <motion.div {...fadeSlideUp} className="flex justify-start">
-              <div className="max-w-lg rounded-2xl rounded-bl-md px-4 py-3 text-sm bg-linear-to-br from-emerald-500/8 to-cyan-500/5 border border-emerald-500/15">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-xs font-semibold text-emerald-400">
-                    Jarvis
-                  </span>
-                </div>
-                <div className="text-foreground/90 leading-relaxed prose-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {activeStreaming}
-                  </ReactMarkdown>
-                </div>
-                <span className="inline-block w-2 h-4 bg-emerald-400/60 animate-pulse ml-0.5 rounded-sm" />
-              </div>
-            </motion.div>
-          )}
-
-          {/* AI thinking indicator */}
-          {activeAiStatus === "thinking" && !activeStreaming && (
-            <motion.div {...fadeSlideUp} className="flex justify-start">
-              <div className="rounded-2xl rounded-bl-md px-4 py-3 bg-linear-to-br from-emerald-500/8 to-cyan-500/5 border border-emerald-500/15">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-xs font-semibold text-emerald-400">Jarvis</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <TypingDots size="md" />
-                  <span className="text-xs text-muted-foreground ml-1">Thinking...</span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Scroll to bottom button */}
-        <AnimatePresence>
-          {showScrollBtn && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              type="button"
-              onClick={() => scrollToBottom()}
-              className="absolute bottom-4 right-4 w-9 h-9 rounded-full bg-card border border-border/40 shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-cyan-500/30 transition-all z-10"
-            >
-              <ArrowDown className="w-4 h-4" />
-            </motion.button>
-          )}
-        </AnimatePresence>
+          {/* Scroll to bottom button */}
+          <AnimatePresence>
+            {showScrollBtn && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                type="button"
+                onClick={() => scrollToBottom()}
+                className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-background/40 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 flex items-center justify-center text-muted-foreground hover:text-cyan-400 hover:border-cyan-500/40 transition-all z-10 active:scale-95"
+              >
+                <ArrowDown className="w-4 h-4" />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Reply preview */}
@@ -771,15 +893,15 @@ export default function ChatPage() {
               transition={{ type: "spring", stiffness: 300, damping: 24 }}
               className="overflow-hidden"
             >
-              <div className="px-4 py-2.5 bg-card/80 backdrop-blur-md border-t border-border/30 flex items-center gap-3">
+              <div className="px-4 py-2.5 bg-background/40 backdrop-blur-xl border-t border-white/5 flex items-center gap-3">
                 <div className="w-1 h-8 rounded-full bg-cyan-400 shrink-0" />
                 <Reply className="w-4 h-4 text-cyan-400 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="text-xs font-semibold text-cyan-400 block">
-                    {replyTo.sender_name}
+                    {replyTo?.sender?.display_name}
                   </span>
                   <p className="text-xs text-muted-foreground truncate">
-                    {replyTo.content}
+                    {replyTo?.content}
                   </p>
                 </div>
                 <motion.button
@@ -796,107 +918,105 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Mention Dropdown */}
-        <AnimatePresence>
-          {mentionQuery !== null && mentionCandidates.length > 0 && (
-            <motion.div
-              ref={mentionRef}
-              initial={{ opacity: 0, y: 8, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 300, damping: 24 }}
-              className="mx-3 md:mx-4 mb-1 bg-card border border-border/40 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto"
-            >
-              <div className="px-3 py-1.5 border-b border-border/20">
-                <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
-                  Mention someone
-                </span>
-              </div>
-              {mentionCandidates.map((candidate, idx) => (
-                <button
-                  key={candidate.id}
-                  type="button"
-                  onClick={() => insertMention(candidate.display_name)}
-                  onMouseEnter={() => setMentionIndex(idx)}
-                  className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors ${
-                    idx === mentionIndex
-                      ? "bg-cyan-500/10"
-                      : "hover:bg-secondary/30"
-                  }`}
-                >
-                  <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                      candidate.id === 0
-                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                        : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+        {/* Input Area */}
+        <div className="shrink-0 relative">
+          {/* Mention Dropdown */}
+          <AnimatePresence>
+            {mentionQuery !== null && mentionCandidates.length > 0 && (
+              <motion.div
+                ref={mentionRef}
+                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                className="absolute bottom-full left-2 right-2 mb-2 bg-background/40 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden max-h-56 overflow-y-auto z-50"
+              >
+                <div className="px-4 py-2 border-b border-white/10 bg-white/5 sticky top-0 z-10">
+                  <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                    Mention someone
+                  </span>
+                </div>
+                {mentionCandidates.map((candidate, idx) => (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => insertMention(candidate.display_name)}
+                    onMouseEnter={() => setMentionIndex(idx)}
+                    className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
+                      idx === mentionIndex ? "bg-white/10" : "hover:bg-white/5"
                     }`}
                   >
-                    {candidate.id === 0 ? (
-                      <Bot className="w-3.5 h-3.5" />
-                    ) : (
-                      candidate.display_name[0]?.toUpperCase()
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <span className="text-sm font-medium text-foreground block truncate">
-                      {candidate.display_name}
-                    </span>
-                    {candidate.id !== 0 && (
-                      <span className="text-[11px] text-muted-foreground/50 truncate block">
-                        {candidate.email}
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                        candidate.id === 0
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                          : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                      }`}
+                    >
+                      {candidate.id === 0 ? (
+                        <Bot className="w-3.5 h-3.5" />
+                      ) : (
+                        candidate.display_name[0]?.toUpperCase()
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium text-foreground block truncate">
+                        {candidate.display_name}
+                      </span>
+                      {candidate.id !== 0 && (
+                        <span className="text-[11px] text-muted-foreground/50 truncate block">
+                          {candidate.email}
+                        </span>
+                      )}
+                    </div>
+                    {candidate.id === 0 && (
+                      <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-md border border-emerald-500/15 shrink-0">
+                        AI
                       </span>
                     )}
-                  </div>
-                  {candidate.id === 0 && (
-                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-md border border-emerald-500/15 shrink-0">
-                      AI
-                    </span>
-                  )}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Input Area */}
-        <div className="shrink-0">
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
           <form
             onSubmit={handleSend}
-            className="px-2 py-1.5 md:px-3 md:py-2 bg-background/80 backdrop-blur-xl border-t border-border/40"
+            className="px-1.5 py-1 border-t border-white/5"
           >
             {/* Image preview */}
             <AnimatePresence>
               {imagePreview && (
                 <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 24 }}
-                  className="mb-2.5"
+                  initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                  className="mb-3 w-fit"
                 >
-                  <div className="relative w-fit group/img">
+                  <div className="relative group/preview p-1 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-2xl shadow-xl shadow-black/60">
                     <img
                       src={imagePreview}
                       alt="preview"
-                      className="h-20 w-20 object-cover rounded-xl border border-border/40 shadow-lg"
+                      className="h-20 w-20 object-cover rounded-xl border border-white/10 shadow-inner"
                     />
                     <motion.button
                       type="button"
-                      whileHover={{ scale: 1.15 }}
+                      whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => {
                         setImageFile(null);
                         setImagePreview(null);
-                        if (fileInputRef.current) fileInputRef.current.value = "";
+                        if (fileInputRef.current)
+                          fileInputRef.current.value = "";
                       }}
-                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-500/30"
+                      className="absolute -top-2.5 -right-2.5 w-7 h-7 bg-red-500/20 backdrop-blur-md border border-red-500/40 text-red-400 hover:text-red-300 hover:bg-red-500/30 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20 transition-all active:scale-90"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-4 h-4" />
                     </motion.button>
                     {activeRoom?.type === "direct_ai" && (
-                      <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-emerald-500/90 backdrop-blur-sm">
-                        <span className="text-[9px] font-bold text-white flex items-center gap-0.5">
-                          <Sparkles className="w-2.5 h-2.5" /> Vision
+                      <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/40 shadow-lg shadow-emerald-500/10">
+                        <span className="text-[9px] font-black text-emerald-400 flex items-center gap-1.5 tracking-widest">
+                          <Sparkles className="w-3 h-3" /> VISION
                         </span>
                       </div>
                     )}
@@ -905,15 +1025,15 @@ export default function ChatPage() {
               )}
             </AnimatePresence>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-black/40 backdrop-blur-3xl border border-white/5 shadow-2xl shadow-black/60 group-focus-within:border-white/10 transition-all">
               {/* Image picker */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-cyan-400 transition-colors shrink-0"
+                className="flex items-center justify-center w-9 h-9 rounded-xl text-muted-foreground hover:text-cyan-400 hover:bg-white/10 transition-all shrink-0 active:scale-95 focus-visible:ring-1 focus-visible:ring-cyan-500/30 outline-hidden"
                 title="Upload image"
               >
-                <ImageIcon className="w-4.5 h-4.5" />
+                <ImageIcon className="w-5 h-5" />
               </button>
               <input
                 ref={fileInputRef}
@@ -923,9 +1043,9 @@ export default function ChatPage() {
                 className="hidden"
               />
 
-              {/* Textarea pill */}
-              <div className="flex-1 relative rounded-xl bg-secondary/40 border border-border/30 focus-within:border-cyan-500/40 transition-all overflow-hidden">
-                <textarea
+              {/* Textarea */}
+              <div className="flex-1 relative">
+                <input
                   ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
@@ -961,7 +1081,9 @@ export default function ChatPage() {
                     }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      handleSend(e as unknown as React.FormEvent<HTMLFormElement>);
+                      handleSend(
+                        e as unknown as React.FormEvent<HTMLFormElement>,
+                      );
                     }
                   }}
                   placeholder={
@@ -972,7 +1094,7 @@ export default function ChatPage() {
                         : "Type a message..."
                   }
                   rows={1}
-                  className="w-full bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none resize-none leading-snug"
+                  className="w-full bg-transparent px-1 pt-1 pb-0.5 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none resize-none leading-relaxed"
                   disabled={sending || !activeRoomId}
                   style={{ maxHeight: 120 }}
                 />
@@ -984,12 +1106,12 @@ export default function ChatPage() {
                 disabled={
                   sending || (!input.trim() && !imageFile) || !activeRoomId
                 }
-                className="flex items-center justify-center w-8 h-8 rounded-lg bg-linear-to-br from-cyan-500 to-emerald-500 text-white disabled:opacity-20 disabled:cursor-not-allowed active:scale-95 transition-all shrink-0"
+                className="flex items-center justify-center w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 disabled:opacity-20 disabled:grayscale disabled:cursor-not-allowed active:scale-90 transition-all shrink-0 shadow-lg shadow-cyan-500/10 focus-visible:ring-1 focus-visible:ring-cyan-500/30 outline-hidden"
               >
                 {sending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="w-5 h-5 fill-current" />
                 )}
               </button>
             </div>
@@ -999,7 +1121,7 @@ export default function ChatPage() {
 
       {/* ── Members Panel (Desktop) ──────────────────── */}
       <AnimatePresence>
-        {showMembersPanel && !isMobile && activeRoom?.type === "group" && (
+        {showMembersPanel && !isMobile && activeRoom && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 256, opacity: 1 }}
@@ -1008,21 +1130,32 @@ export default function ChatPage() {
             className="shrink-0 bg-card/50 backdrop-blur-xl border-l border-border/30 flex flex-col overflow-hidden"
           >
             <div className="px-4 py-4 border-b border-border/30">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Members ({membersList.length})
-                </h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground truncate">
+                    Members ({roomMembers.length})
+                  </h3>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="px-1 py-[0.5px] rounded bg-primary/10 border border-primary/20 text-primary text-[8px] font-bold uppercase tracking-widest leading-none">
+                      {activeRoom?.type === "direct_ai"
+                        ? "Assistant"
+                        : activeRoom?.type === "DM"
+                          ? "Direct Message"
+                          : "Group Chat"}
+                    </span>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowMembersPanel(false)}
-                  className="p-1 rounded-lg hover:bg-secondary/50 transition-colors"
+                  className="p-1 rounded-lg hover:bg-secondary/50 transition-colors shrink-0"
                 >
                   <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              {membersList.map((member) => (
+              {roomMembers.map((member: any) => (
                 <div
                   key={member.id}
                   className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-secondary/30 transition-colors"
@@ -1033,15 +1166,31 @@ export default function ChatPage() {
                     </div>
                     <div
                       className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${
-                        member.is_online ? "bg-emerald-400" : "bg-muted-foreground/40"
+                        member.is_online
+                          ? "bg-emerald-400"
+                          : "bg-muted-foreground/40"
                       }`}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-foreground truncate">
-                      {member.display_name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/60 truncate">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-xs font-medium text-foreground truncate max-w-full">
+                        {member.display_name}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        {activeRoom?.owner_id === member.id && (
+                          <span className="px-1.5 py-[1px] rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold uppercase tracking-wider shrink-0">
+                            Owner
+                          </span>
+                        )}
+                        {member.id === 999 && (
+                          <span className="px-1.5 py-[1px] rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[9px] font-bold uppercase tracking-wider shrink-0">
+                            AI
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 truncate mt-0.5">
                       {member.email}
                     </p>
                   </div>
@@ -1121,7 +1270,9 @@ export default function ChatPage() {
                         <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                           <Brain className="w-5 h-5 text-emerald-400" />
                         </div>
-                        <span className="text-sm font-medium">Chat with AI</span>
+                        <span className="text-sm font-medium">
+                          Chat with AI
+                        </span>
                       </div>
                     </button>
                     <button
@@ -1138,6 +1289,25 @@ export default function ChatPage() {
                           <Users className="w-5 h-5 text-blue-400" />
                         </div>
                         <span className="text-sm font-medium">Group Chat</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewRoomType("DM");
+                        setSelectedMembers([]);
+                      }}
+                      className={`p-4 rounded-xl border transition-all ${
+                        newRoomType === "DM"
+                          ? "border-cyan-500/40 bg-cyan-500/5 shadow-sm shadow-cyan-500/10"
+                          : "border-border/30 hover:border-border/60"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2.5">
+                        <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-purple-500/20 flex items-center justify-center">
+                          <User className="w-5 h-5 text-purple-400" />
+                        </div>
+                        <span className="text-sm font-medium">DM Chat</span>
                       </div>
                     </button>
                   </div>
@@ -1160,7 +1330,9 @@ export default function ChatPage() {
                               key={id}
                               type="button"
                               onClick={() =>
-                                setSelectedMembers(selectedMembers.filter((x) => x !== id))
+                                setSelectedMembers(
+                                  selectedMembers.filter((x) => x !== id),
+                                )
                               }
                               className="inline-flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-medium hover:bg-cyan-500/20 transition-colors"
                             >
@@ -1176,75 +1348,178 @@ export default function ChatPage() {
                     )}
 
                     <div className="space-y-1 max-h-52 overflow-y-auto rounded-xl">
-                      {membersList.filter((m) => m.email !== user?.email).length === 0 ? (
+                      {membersList.filter((m) => m.email !== user?.email)
+                        .length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-6">
                           No family members available
                         </p>
                       ) : (
-                        membersList.filter((m) => m.email !== user?.email).map((member) => {
-                          const isSelected = selectedMembers.includes(member.id);
-                          return (
-                            <button
-                              key={member.id}
-                              type="button"
-                              onClick={() => {
-                                if (isSelected) {
-                                  setSelectedMembers(
-                                    selectedMembers.filter((id) => id !== member.id),
+                        membersList
+                          .filter((m) => m.email !== user?.email)
+                          .map((member) => {
+                            const isSelected = selectedMembers.includes(
+                              member.id,
+                            );
+                            return (
+                              <button
+                                key={member.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedMembers(
+                                      selectedMembers.filter(
+                                        (id) => id !== member.id,
+                                      ),
+                                    );
+                                  } else {
+                                    setSelectedMembers([
+                                      ...selectedMembers,
+                                      member.id,
+                                    ]);
+                                  }
+                                }}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all ${
+                                  isSelected
+                                    ? "bg-cyan-500/8 border border-cyan-500/25"
+                                    : "hover:bg-secondary/30 border border-transparent"
+                                }`}
+                              >
+                                <div
+                                  className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                                    isSelected
+                                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                                      : "bg-secondary/50 text-muted-foreground border border-border/20"
+                                  }`}
+                                >
+                                  {member.display_name[0]?.toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0 text-left">
+                                  <p className="text-sm font-medium text-foreground truncate">
+                                    {member.display_name}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground/50 truncate">
+                                    {member.email}
+                                  </p>
+                                </div>
+                                <div
+                                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                                    isSelected
+                                      ? "bg-cyan-500 border-cyan-500"
+                                      : "border-muted-foreground/30"
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <svg
+                                      className="w-3 h-3 text-white"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={3}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                )}
+                {newRoomType === "DM" && (
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-3">
+                      Choose Member(Select One)
+                    </label>
+                    <div className="space-y-1 max-h-52 overflow-y-auto rounded-xl">
+                      {membersList.filter((m) => m.email !== user?.email)
+                        .length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">
+                          No family members available
+                        </p>
+                      ) : (
+                        membersList
+                          .filter((m) => m.email !== user?.email)
+                          .map((member) => {
+                            const isSelected = selectedMembers.includes(
+                              member.id,
+                            );
+                            return (
+                              <button
+                                key={member.id}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedMembers(
+                                      selectedMembers.filter(
+                                        (id) => id !== member.id,
+                                      ),
+                                    );
+                                  } else {
+                                    setSelectedMembers([
+                                      ...selectedMembers,
+                                      member.id,
+                                    ]);
+                                  }
+                                  //unselect others
+                                  setSelectedMembers((prev) =>
+                                    prev.filter((id) => id === member.id),
                                   );
-                                } else {
-                                  setSelectedMembers([...selectedMembers, member.id]);
-                                }
-                              }}
-                              className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all ${
-                                isSelected
-                                  ? "bg-cyan-500/8 border border-cyan-500/25"
-                                  : "hover:bg-secondary/30 border border-transparent"
-                              }`}
-                            >
-                              <div
-                                className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                                }}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all ${
                                   isSelected
-                                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                                    : "bg-secondary/50 text-muted-foreground border border-border/20"
+                                    ? "bg-cyan-500/8 border border-cyan-500/25"
+                                    : "hover:bg-secondary/30 border border-transparent"
                                 }`}
                               >
-                                {member.display_name[0]?.toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0 text-left">
-                                <p className="text-sm font-medium text-foreground truncate">
-                                  {member.display_name}
-                                </p>
-                                <p className="text-[11px] text-muted-foreground/50 truncate">
-                                  {member.email}
-                                </p>
-                              </div>
-                              <div
-                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                                  isSelected
-                                    ? "bg-cyan-500 border-cyan-500"
-                                    : "border-muted-foreground/30"
-                                }`}
-                              >
-                                {isSelected && (
-                                  <svg
-                                    className="w-3 h-3 text-white"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={3}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })
+                                <div
+                                  className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                                    isSelected
+                                      ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                                      : "bg-secondary/50 text-muted-foreground border border-border/20"
+                                  }`}
+                                >
+                                  {member.display_name[0]?.toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0 text-left">
+                                  <p className="text-sm font-medium text-foreground truncate">
+                                    {member.display_name}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground/50 truncate">
+                                    {member.email}
+                                  </p>
+                                </div>
+                                <div
+                                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                                    isSelected
+                                      ? "bg-cyan-500 border-cyan-500"
+                                      : "border-muted-foreground/30"
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <svg
+                                      className="w-3 h-3 text-white"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={3}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })
                       )}
                     </div>
                   </div>
@@ -1274,6 +1549,93 @@ export default function ChatPage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+      {/* ── Mobile Members Sheet ──────────────────────── */}
+      <AnimatePresence>
+        {isMobile && showMembersMobile && (
+          <div className="fixed inset-0 z-50 flex items-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowMembersMobile(false)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="w-full z-10 bg-background/60 backdrop-blur-xl rounded-t-[2.5rem] shadow-2xl border-t border-white/5 p-6 max-h-[85vh] flex flex-col"
+            >
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-6" />
+              <div className="flex items-center justify-between pb-3 border-b border-border/30">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold text-foreground truncate">
+                    Members ({roomMembers.length})
+                  </h3>
+                  <span className="px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary text-[9px] font-bold uppercase tracking-widest mt-1 inline-block leading-none">
+                    {activeRoom?.type === "direct_ai"
+                      ? "Assistant"
+                      : activeRoom?.type === "DM"
+                        ? "Direct Message"
+                        : "Group Chat"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="p-2 rounded-xl hover:bg-secondary/50 transition-colors"
+                  onClick={() => setShowMembersMobile(false)}
+                >
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+              <div className="mt-3 space-y-1 flex-1 overflow-auto">
+                {roomMembers.map((member: any) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center gap-3.5 p-3.5 rounded-[1.25rem] bg-white/5 border border-white/5 transition-all active:scale-[0.98]"
+                  >
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-xl bg-linear-to-br from-cyan-500/20 to-primary/20 flex items-center justify-center text-sm font-bold text-foreground shrink-0">
+                        {member.display_name[0]?.toUpperCase()}
+                      </div>
+                      <div
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${
+                          member.is_online
+                            ? "bg-emerald-400"
+                            : "bg-muted-foreground/40"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-semibold text-foreground truncate max-w-full">
+                          {member.display_name}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {activeRoom?.owner_id === member.id && (
+                            <span className="px-1.5 py-px rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold uppercase tracking-wider shrink-0">
+                              Owner
+                            </span>
+                          )}
+                          {member.id === 999 && (
+                            <span className="px-1.5 py-px rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[9px] font-bold uppercase tracking-wider shrink-0">
+                              AI
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground/60 truncate">
+                        {member.email}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
@@ -1394,7 +1756,9 @@ function RoomItem({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className={`text-sm font-medium truncate ${active ? "text-foreground" : "text-foreground/80"}`}>
+            <span
+              className={`text-sm font-medium truncate ${active ? "text-foreground" : "text-foreground/80"}`}
+            >
               {room.name}
             </span>
             <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -1413,7 +1777,9 @@ function RoomItem({
           {room.last_msg_text && (
             <p className="text-xs text-muted-foreground/60 truncate">
               {room.last_msg_by && (
-                <span className="text-muted-foreground/80">{room.last_msg_by}: </span>
+                <span className="text-muted-foreground/80">
+                  {room.last_msg_by}:{" "}
+                </span>
               )}
               {room.last_msg_text}
             </p>
@@ -1428,12 +1794,30 @@ function RoomItem({
 
 function StatusIcon({ status }: { status: string }) {
   const check = (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M5 13l4 4L19 7" />
     </svg>
   );
   const doubleCheck = (
-    <svg width="16" height="12" viewBox="0 0 28 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="12"
+      viewBox="0 0 28 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M1 13l4 4L15 7" />
       <path d="M9 13l4 4L23 7" />
     </svg>
@@ -1442,14 +1826,28 @@ function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case "sending":
       return (
-        <svg className="w-3 h-3 text-muted-foreground/40 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <svg
+          className="w-3 h-3 text-muted-foreground/40 animate-spin"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        >
           <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
         </svg>
       );
     case "failed":
       return (
         <span className="text-red-400 text-[10px] font-medium flex items-center gap-0.5">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+          >
             <circle cx="12" cy="12" r="10" />
             <path d="M12 8v4M12 16h.01" />
           </svg>
@@ -1459,12 +1857,50 @@ function StatusIcon({ status }: { status: string }) {
       return <span className="text-cyan-400 flex">{doubleCheck}</span>;
     case "delivered":
     case "processed":
-      return <span className="text-muted-foreground/50 flex">{doubleCheck}</span>;
+      return (
+        <span className="text-muted-foreground/50 flex">{doubleCheck}</span>
+      );
     case "sent":
       return <span className="text-muted-foreground/50 flex">{check}</span>;
     default:
       return null;
   }
+}
+
+function ImageWithFallback({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <div
+        className={`flex flex-col items-center justify-center p-8 gap-3 bg-secondary/15 rounded-xl border border-white/5 ${className}`}
+      >
+        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
+          <ImageIcon className="w-6 h-6 text-muted-foreground/30" />
+        </div>
+        <span className="text-xs font-medium text-muted-foreground/40">
+          Image not available
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setError(true)}
+      className={className}
+    />
+  );
 }
 
 function MessageBubble({
@@ -1490,16 +1926,18 @@ function MessageBubble({
       data-msg-id={msg.id}
       className={`flex ${isOwn ? "justify-end" : "justify-start"} group py-0.5 transition-colors duration-700`}
     >
-      <div className={`relative max-w-[85%] sm:max-w-md md:max-w-lg ${isSending ? "opacity-60" : ""}`}>
+      <div
+        className={`relative max-w-[85%] sm:max-w-md md:max-w-lg ${isSending ? "opacity-60" : ""}`}
+      >
         <div
-          className={`rounded-2xl overflow-hidden transition-all ${
+          className={`rounded-[1.25rem] overflow-hidden transition-all ${
             isFailed
               ? "rounded-br-md bg-linear-to-br from-red-600/80 to-red-500/80 text-white shadow-md shadow-red-500/10 border border-red-500/30"
               : isAI
-                ? "rounded-bl-md bg-linear-to-br from-emerald-500/8 to-cyan-500/5 border border-emerald-500/15"
+                ? "rounded-bl-md bg-emerald-500/10 backdrop-blur-xl border border-emerald-500/20 shadow-lg shadow-emerald-500/5"
                 : isOwn
-                  ? "rounded-br-md bg-linear-to-br from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-500/10"
-                  : "rounded-bl-md bg-secondary/40 border border-border/20 text-foreground"
+                  ? "rounded-br-md bg-cyan-500/15 backdrop-blur-xl border border-cyan-500/20 text-foreground shadow-lg shadow-cyan-500/5"
+                  : "rounded-bl-md bg-background/40 backdrop-blur-xl border border-white/5 text-foreground shadow-xl shadow-black/20"
           }`}
         >
           {/* Sender name */}
@@ -1511,41 +1949,66 @@ function MessageBubble({
                 }`}
               >
                 {isAI && <Sparkles className="w-3 h-3" />}
-                {msg.sender_name}
+                {msg.sender?.display_name}
               </span>
             </div>
           )}
 
           {/* Image */}
           {isImage && msg.media_url && (
-            <div>
-              <img
+            <div className="p-1.5 pb-0">
+              <ImageWithFallback
                 src={msg.media_url}
-                alt="message"
-                className="w-full h-auto max-h-80 object-cover"
+                alt={msg.content || "image message"}
+                className="w-full h-auto max-h-80 object-cover rounded-xl border border-white/5 shadow-sm"
               />
-              {msg.content && msg.content !== "\ud83d\udcf7" && (
-                <div className="px-4 py-2 text-sm">{msg.content}</div>
+              {msg.content && msg.content !== "📷" && (
+                <div
+                  className={`px-2.5 py-3 text-sm font-medium ${isOwn ? "text-white" : "text-foreground"}`}
+                >
+                  {msg.content}
+                </div>
               )}
             </div>
           )}
 
           {/* Text */}
           {(!isImage || !msg.media_url) && msg.content && (
-            <div className={`px-4 py-2 text-sm leading-relaxed ${isImage ? "bg-black/10" : ""}`}>
+            <div
+              className={`px-4.5 py-2.5 text-sm leading-relaxed ${isImage ? "bg-white/5" : ""}`}
+            >
               {/* Reply reference */}
               {msg.reply_to && (
                 <button
                   type="button"
                   onClick={() => onScrollToReply(msg.reply_to!.id)}
-                  className="mb-2 pl-3 border-l-2 border-current/30 opacity-70 text-xs text-left w-full hover:opacity-100 transition-opacity cursor-pointer"
+                  className={`mb-3.5 flex items-stretch gap-3 w-full text-left group/reply transition-all active:scale-[0.98] cursor-pointer`}
                 >
-                  <span className="font-medium block">{msg.reply_to.sender_name}</span>
-                  <p className="truncate opacity-80">{msg.reply_to.content}</p>
+                  <div
+                    className={`w-1 rounded-full shrink-0 ${isOwn ? "bg-white/30" : "bg-cyan-500/40"}`}
+                  />
+                  <div
+                    className={`flex-1 min-w-0 py-1.5 px-3 rounded-xl border border-white/5 transition-colors ${
+                      isOwn
+                        ? "bg-white/10 group-hover/reply:bg-white/15"
+                        : "bg-cyan-500/8 group-hover/reply:bg-cyan-500/12"
+                    }`}
+                  >
+                    <span
+                      className={`text-[11px] font-bold block mb-0.5 ${isOwn ? "text-white" : "text-cyan-400"}`}
+                    >
+                      {msg?.reply_to.sender?.display_name}
+                    </span>
+                    <p
+                      className={`text-[11px] truncate ${isOwn ? "text-white/60" : "text-muted-foreground/80"}`}
+                    >
+                      {msg?.reply_to.content}
+                    </p>
+                  </div>
                 </button>
               )}
               {isAI ? (
-                <div className="prose prose-sm prose-invert prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-code:text-cyan-300 prose-code:bg-cyan-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-black/30 prose-pre:rounded-lg max-w-none">
+                <div className="prose prose-sm prose-invert prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-code:text-emerald-300 prose-code:bg-emerald-500/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-lg prose-code:text-[11px] prose-pre:bg-black/40 prose-pre:rounded-xl max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {msg.content}
                   </ReactMarkdown>
@@ -1578,7 +2041,9 @@ function MessageBubble({
             <span className="text-[10px] text-red-400">Failed to send</span>
           ) : isSending ? (
             <>
-              <span className="text-[10px] text-muted-foreground/40">Sending</span>
+              <span className="text-[10px] text-muted-foreground/40">
+                Sending
+              </span>
               <StatusIcon status="sending" />
             </>
           ) : (
@@ -1605,11 +2070,7 @@ function HighlightMentions({ text, isOwn }: { text: string; isOwn: boolean }) {
         /^@\w+/.test(part) ? (
           <span
             key={i}
-            className={`font-semibold ${
-              isOwn
-                ? "text-white/90 bg-white/15 px-1 rounded"
-                : "text-cyan-400 bg-cyan-500/10 px-1 rounded"
-            }`}
+            className="font-bold inline-block px-2 py-0.5 rounded-full text-[13px] text-cyan-400 bg-cyan-500/15 border border-cyan-500/10 shadow-sm"
           >
             {part}
           </span>

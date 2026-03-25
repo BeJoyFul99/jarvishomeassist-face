@@ -50,6 +50,12 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
     }
   },
   initialize: () => {
+    const { isMobile } = get();
+    // On mobile, always start closed (sidebar is a sheet overlay)
+    if (isMobile) {
+      set({ isOpen: false });
+      return;
+    }
     const cookieValue = getCookie(SIDEBAR_COOKIE_NAME);
     if (cookieValue !== null) {
       const open = cookieValue !== "false";

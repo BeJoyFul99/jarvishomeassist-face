@@ -27,6 +27,13 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
 
 const container = {
@@ -203,12 +210,12 @@ export default function InferencePage() {
         variants={container}
         initial="hidden"
         animate="show"
-        className="p-4 md:p-6 max-w-7xl mx-auto space-y-4"
+        className="p-5 md:p-8 max-w-7xl mx-auto space-y-6 md:space-y-8"
       >
         {/* Header */}
         <motion.div
           variants={item}
-          className="flex items-center justify-between"
+          className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
         >
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
@@ -223,17 +230,21 @@ export default function InferencePage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              className="h-8 px-2 rounded-lg bg-secondary/50 border border-border/30 text-xs text-foreground focus:outline-none"
+          <div className="flex items-center gap-2 md:w-auto justify-start md:justify-end px-1 sm:px-0">
+            <Select
+              value={String(days)}
+              onValueChange={(v) => setDays(Number(v))}
             >
-              <option value={1}>24h</option>
-              <option value={7}>7 days</option>
-              <option value={14}>14 days</option>
-              <option value={30}>30 days</option>
-            </select>
+              <SelectTrigger className="h-8 w-[100px] bg-secondary/50 border border-border/30 text-xs">
+                <SelectValue placeholder="Time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">24h</SelectItem>
+                <SelectItem value="7">7 days</SelectItem>
+                <SelectItem value="14">14 days</SelectItem>
+                <SelectItem value="30">30 days</SelectItem>
+              </SelectContent>
+            </Select>
             <button
               onClick={fetchAll}
               disabled={loading}
@@ -293,7 +304,7 @@ export default function InferencePage() {
         {/* Top metrics */}
         <motion.div
           variants={item}
-          className="grid grid-cols-2 md:grid-cols-4 gap-3"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3"
         >
           <MetricCard
             icon={Zap}
@@ -464,7 +475,7 @@ export default function InferencePage() {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-55 text-sm text-muted-foreground">
+              <div className="flex items-center justify-center h-[180px] sm:h-[220px] text-sm text-muted-foreground">
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
@@ -637,12 +648,12 @@ function MetricCard({
   loading: boolean;
 }) {
   return (
-    <div className="glass-card-hover p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className={`w-3.5 h-3.5 ${color}`} />
-        <span className="text-xs text-muted-foreground">{label}</span>
+    <div className="glass-card-hover p-4 sm:p-5">
+      <div className="flex items-center gap-2 mb-2 sm:mb-2.5 text-muted-foreground/80">
+        <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${color}`} />
+        <span className="text-[11px] sm:text-xs">{label}</span>
       </div>
-      <div className="font-mono text-lg font-semibold text-foreground truncate">
+      <div className="font-mono text-lg sm:text-xl font-semibold text-foreground truncate">
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
         ) : (

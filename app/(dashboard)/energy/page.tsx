@@ -21,6 +21,7 @@ import {
   Snowflake,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -442,16 +443,24 @@ export default function EnergyManagementPage() {
       </motion.div>
 
       {/* Tabs */}
-      <motion.div variants={item} className="flex gap-1 p-0.5 bg-secondary/50 rounded-lg w-fit">
+      <motion.div variants={item} className="flex gap-1 p-1 bg-secondary/40 backdrop-blur-md border border-white/5 rounded-xl w-full md:w-fit relative">
         {(["rates", "budget", "readings"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all capitalize ${
-              tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={cn(
+              "relative flex-1 md:flex-initial px-3 md:px-5 py-2 rounded-lg text-xs font-semibold transition-colors z-10 capitalize whitespace-nowrap",
+              tab === t ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            {t}
+            {tab === t && (
+              <motion.div
+                layoutId="activeEnergyTab"
+                className="absolute inset-0 bg-primary shadow-[0_0_15px_-5px_hsl(var(--primary)/0.4)] rounded-lg"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+            <span className="relative z-10">{t}</span>
           </button>
         ))}
       </motion.div>
@@ -521,9 +530,9 @@ export default function EnergyManagementPage() {
               </h2>
               <button
                 onClick={openCreateRate}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.4)] whitespace-nowrap"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Rate
+                <Plus className="w-3.5 h-3.5" /> New Rate
               </button>
             </div>
 
@@ -606,7 +615,7 @@ export default function EnergyManagementPage() {
               </h2>
               <button
                 onClick={openBudgetDialog}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.4)] whitespace-nowrap"
               >
                 <Pencil className="w-3.5 h-3.5" /> {budgetKWh > 0 ? "Edit Budget" : "Set Budget"}
               </button>
@@ -738,7 +747,7 @@ export default function EnergyManagementPage() {
               </h2>
               <button
                 onClick={openRecordDialog}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-all hover:shadow-[0_0_15px_-5px_hsl(var(--primary)/0.4)] whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" /> Record Reading
               </button>
@@ -808,63 +817,71 @@ export default function EnergyManagementPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                value={rateForm.name}
-                onChange={(e) => setRateForm({ ...rateForm, name: e.target.value })}
-                placeholder="e.g. Peak, Off-Peak, Standard"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Price per kWh</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={rateForm.price_per_kwh}
-                onChange={(e) => setRateForm({ ...rateForm, price_per_kwh: e.target.value })}
-                placeholder="0.12"
-              />
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Name</Label>
+                <Input
+                  value={rateForm.name}
+                  onChange={(e) => setRateForm({ ...rateForm, name: e.target.value })}
+                  placeholder="Peak"
+                  className="h-8 text-sm bg-secondary/30 border-white/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Price / kWh</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={rateForm.price_per_kwh}
+                  onChange={(e) => setRateForm({ ...rateForm, price_per_kwh: e.target.value })}
+                  placeholder="0.12"
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Start Hour (0–23)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Start (0-23)</Label>
                 <Input
                   type="number"
                   min="0"
                   max="23"
                   value={rateForm.start_hour}
                   onChange={(e) => setRateForm({ ...rateForm, start_hour: e.target.value })}
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>End Hour (1–24)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">End (1-24)</Label>
                 <Input
                   type="number"
                   min="1"
                   max="24"
                   value={rateForm.end_hour}
                   onChange={(e) => setRateForm({ ...rateForm, end_hour: e.target.value })}
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setRateForm({ ...rateForm, is_active: !rateForm.is_active })}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {rateForm.is_active ? (
-                  <ToggleRight className="w-6 h-6 text-emerald" />
-                ) : (
-                  <ToggleLeft className="w-6 h-6" />
-                )}
-              </button>
-              <span className="text-sm text-foreground">{rateForm.is_active ? "Active" : "Inactive"}</span>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-white/5 mt-1">
+              <span className="text-xs font-semibold text-foreground uppercase tracking-tight">Status</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">{rateForm.is_active ? "Active" : "Inactive"}</span>
+                <button
+                  type="button"
+                  onClick={() => setRateForm({ ...rateForm, is_active: !rateForm.is_active })}
+                  className="transition-transform active:scale-95"
+                >
+                  {rateForm.is_active ? (
+                    <ToggleRight className="w-5 h-5 text-emerald" />
+                  ) : (
+                    <ToggleLeft className="w-5 h-5 text-muted-foreground/50" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -914,12 +931,12 @@ export default function EnergyManagementPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 py-2">
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Month</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Month</Label>
                 <Select value={budgetForm.month} onValueChange={(v) => setBudgetForm({ ...budgetForm, month: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 bg-secondary/30 border-white/5"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MONTHS.map((m, i) => (
                       <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
@@ -927,38 +944,40 @@ export default function EnergyManagementPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Year</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Year</Label>
                 <Input
                   type="number"
                   value={budgetForm.year}
                   onChange={(e) => setBudgetForm({ ...budgetForm, year: e.target.value })}
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Budget (kWh)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Budget (kWh)</Label>
                 <Input
                   type="number"
                   value={budgetForm.budget_kwh}
                   onChange={(e) => setBudgetForm({ ...budgetForm, budget_kwh: e.target.value })}
                   placeholder="500"
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Budget (Amount)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Budget ({currency})</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={budgetForm.budget_amount}
                   onChange={(e) => setBudgetForm({ ...budgetForm, budget_amount: e.target.value })}
                   placeholder="60.00"
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
                 />
               </div>
             </div>
-
           </div>
 
           <DialogFooter>
@@ -989,57 +1008,64 @@ export default function EnergyManagementPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Timestamp</Label>
-              <Input
-                type="datetime-local"
-                value={readingForm.timestamp}
-                onChange={(e) => setReadingForm({ ...readingForm, timestamp: e.target.value })}
-              />
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Timestamp</Label>
+                <Input
+                  type="datetime-local"
+                  value={readingForm.timestamp}
+                  onChange={(e) => setReadingForm({ ...readingForm, timestamp: e.target.value })}
+                  className="h-8 text-[11px] font-mono bg-secondary/30 border-white/5"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Source</Label>
+                <Select value={readingForm.source} onValueChange={(v) => setReadingForm({ ...readingForm, source: v })}>
+                  <SelectTrigger className="h-8 bg-secondary/30 border-white/5"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="smart_meter">Smart Meter</SelectItem>
+                    <SelectItem value="estimate">Estimate</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Watt-hours (Wh) *</Label>
-              <Input
-                type="number"
-                value={readingForm.watt_hours}
-                onChange={(e) => setReadingForm({ ...readingForm, watt_hours: e.target.value })}
-                placeholder="350"
-              />
+            <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Watt-hours (Wh) *</Label>
+                <Input
+                  type="number"
+                  value={readingForm.watt_hours}
+                  onChange={(e) => setReadingForm({ ...readingForm, watt_hours: e.target.value })}
+                  placeholder="350"
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Avg Watts</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Avg Watts</Label>
                 <Input
                   type="number"
                   value={readingForm.avg_watts}
                   onChange={(e) => setReadingForm({ ...readingForm, avg_watts: e.target.value })}
-                  placeholder="Auto from Wh"
+                  placeholder="Auto"
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Peak Watts</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Peak Watts</Label>
                 <Input
                   type="number"
                   value={readingForm.peak_watts}
                   onChange={(e) => setReadingForm({ ...readingForm, peak_watts: e.target.value })}
                   placeholder="0"
+                  className="h-8 text-sm font-mono bg-secondary/30 border-white/5"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Source</Label>
-              <Select value={readingForm.source} onValueChange={(v) => setReadingForm({ ...readingForm, source: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manual">Manual</SelectItem>
-                  <SelectItem value="smart_meter">Smart Meter</SelectItem>
-                  <SelectItem value="estimate">Estimate</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 

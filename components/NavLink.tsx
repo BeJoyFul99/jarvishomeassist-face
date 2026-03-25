@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useSidebarStore } from "@/store/useSidebarStore";
 
 interface NavLinkProps {
   href: string;
@@ -21,10 +22,14 @@ export const NavLink = ({
 }: NavLinkProps) => {
   const pathname = usePathname();
   const isActive = end ? pathname === href : pathname?.startsWith(href);
+  const { isMobile, setOpenMobile } = useSidebarStore();
 
   return (
     <Link
       href={href}
+      onClick={() => {
+        if (isMobile) setOpenMobile(false);
+      }}
       className={cn(
         "flex items-center gap-3 transition-colors",
         className,

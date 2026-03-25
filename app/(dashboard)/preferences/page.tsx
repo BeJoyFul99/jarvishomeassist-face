@@ -18,7 +18,12 @@ const container = {
 };
 const item = {
   hidden: { opacity: 0, y: 16, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring" as const, stiffness: 300, damping: 24 },
+  },
 };
 
 const DEFAULTS = buildDefaults(USER_PREFERENCES);
@@ -69,7 +74,9 @@ export default function PreferencesPage() {
         body: JSON.stringify(values),
       });
       if (!res.ok) throw new Error("Failed to save preferences");
-      toast.success("Preferences saved", { description: "Your personal preferences have been updated." });
+      toast.success("Preferences saved", {
+        description: "Your personal preferences have been updated.",
+      });
     } catch {
       toast.error("Failed to save preferences");
     } finally {
@@ -100,7 +107,12 @@ export default function PreferencesPage() {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
+    <motion.div
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="max-w-3xl mx-auto p-4 md:p-6 space-y-6"
+    >
       <motion.div variants={item}>
         <h1 className="text-xl font-semibold text-foreground">Preferences</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -108,7 +120,11 @@ export default function PreferencesPage() {
         </p>
       </motion.div>
 
-      <SettingsForm fields={USER_PREFERENCES} values={values} onChange={handleChange} />
+      <SettingsForm
+        fields={USER_PREFERENCES}
+        values={values}
+        onChange={handleChange}
+      />
 
       {/* Browser push — special case, lives outside schema (browser API, not stored on server) */}
       <motion.div variants={item} className="glass-card p-5 space-y-5">
@@ -116,7 +132,9 @@ export default function PreferencesPage() {
         <div className="h-px bg-white/[0.06]" />
         <div className="flex items-center justify-between">
           <div>
-            <Label className="text-sm text-foreground">Push notifications</Label>
+            <Label className="text-sm text-foreground">
+              Push notifications
+            </Label>
             <p className="text-xs text-muted-foreground">
               {browserPermission === "granted"
                 ? "Native alerts even when tab is unfocused"
@@ -133,8 +151,17 @@ export default function PreferencesPage() {
           ) : browserPermission === "denied" ? (
             <span className="text-[11px] font-mono text-crimson">Blocked</span>
           ) : (
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 border-white/[0.06]" onClick={requestBrowserPermission}>
+            <motion.div
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5 border-white/[0.06]"
+                onClick={requestBrowserPermission}
+              >
                 <BellRing className="w-3.5 h-3.5" />
                 Enable
               </Button>
@@ -143,15 +170,35 @@ export default function PreferencesPage() {
         </div>
       </motion.div>
 
-      <motion.div variants={item} className="flex gap-3">
-        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
+      <motion.div
+        variants={item}
+        className="flex flex-col sm:flex-row gap-3 pt-2"
+      >
+        <motion.div
+          className="flex-1 sm:flex-initial"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full sm:w-auto px-4 py-2 h-auto text-sm gap-2 font-medium shadow-lg shadow-primary/20"
+          >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "Save preferences"}
           </Button>
         </motion.div>
-        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
-          <Button onClick={handleReset} disabled={saving} variant="outline" className="gap-2 border-white/[0.06] text-muted-foreground hover:text-foreground">
+        <motion.div
+          className="flex-1 sm:flex-initial"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <Button
+            onClick={handleReset}
+            disabled={saving}
+            variant="outline"
+            className="w-full sm:w-auto px-4 py-2 h-auto text-sm gap-2 border-white/10 text-muted-foreground hover:text-foreground transition-all"
+          >
             <RotateCcw className="h-4 w-4" />
             Reset defaults
           </Button>

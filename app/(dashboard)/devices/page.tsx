@@ -9,6 +9,7 @@ import {
   ToggleLeft, ToggleRight, Search, Loader2, RefreshCw,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 
 const container = {
   hidden: { opacity: 0 },
@@ -359,7 +361,7 @@ export default function DevicesPage() {
     <div className="bg-background">
       <motion.div variants={container} initial="hidden" animate="show" className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
-        <motion.div variants={item} className="flex items-center justify-between">
+        <motion.div variants={item} className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
               <Home className="w-5 h-5 text-primary" />
@@ -369,7 +371,7 @@ export default function DevicesPage() {
               <p className="text-sm text-muted-foreground">Smart home controls & network inventory</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
             {manageMode && tab === "smart" && (
               <>
                 <motion.button
@@ -379,7 +381,7 @@ export default function DevicesPage() {
                   whileTap={{ scale: 0.97 }}
                   onClick={discoverDevices}
                   disabled={discovering}
-                  className="flex items-center gap-2 rounded-lg bg-cyan/10 border border-cyan/20 px-4 py-2 text-sm font-medium text-cyan transition-colors hover:bg-cyan/20 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-cyan/10 border border-cyan/20 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-cyan transition-colors hover:bg-cyan/20 disabled:opacity-50"
                 >
                   {discovering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   Discover WiZ
@@ -390,7 +392,7 @@ export default function DevicesPage() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={openAddSmart}
-                  className="flex items-center gap-2 rounded-lg bg-emerald/10 border border-emerald/20 px-4 py-2 text-sm font-medium text-emerald transition-colors hover:bg-emerald/20"
+                  className="flex items-center gap-2 rounded-lg bg-emerald/10 border border-emerald/20 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-emerald transition-colors hover:bg-emerald/20"
                 >
                   <Plus className="w-4 h-4" />
                   Add Device
@@ -404,7 +406,7 @@ export default function DevicesPage() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={openAddNet}
-                className="flex items-center gap-2 rounded-lg bg-emerald/10 border border-emerald/20 px-4 py-2 text-sm font-medium text-emerald transition-colors hover:bg-emerald/20"
+                className="flex items-center gap-2 rounded-lg bg-emerald/10 border border-emerald/20 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-emerald transition-colors hover:bg-emerald/20"
               >
                 <Plus className="w-4 h-4" />
                 Add Device
@@ -414,7 +416,7 @@ export default function DevicesPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setManageMode(!manageMode)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors ${
                 manageMode
                   ? "bg-crimson/10 border border-crimson/20 text-crimson hover:bg-crimson/20"
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -443,18 +445,33 @@ export default function DevicesPage() {
         </motion.div>
 
         {/* Tab switcher */}
-        <motion.div variants={item} className="flex gap-1 p-1 bg-secondary/50 rounded-lg w-fit">
-          {(["smart", "network"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t === "smart" ? "Smart Home" : "Network"}
-            </button>
-          ))}
+        <motion.div variants={item} className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="bg-secondary/50 p-1.5 rounded-xl flex items-center w-full sm:w-auto relative">
+            {(["smart", "network"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "relative flex-1 sm:flex-initial px-6 py-2 rounded-lg text-sm font-medium transition-colors z-10",
+                  tab === t ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab === t && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute inset-0 bg-primary rounded-lg shadow-sm"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10">
+                  {t === "smart" ? "Smart Home" : "Network"}
+                  <span className="ml-1.5 opacity-60 font-mono text-xs">
+                    {t === "smart" ? onlineSmartCount : onlineNetCount}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
         </motion.div>
 
         <AnimatePresence mode="wait">
@@ -485,7 +502,7 @@ export default function DevicesPage() {
                       <motion.div
                         key={device.id}
                         layout
-                        className={`glass-card-hover p-4 transition-all relative group ${!device.online ? "opacity-50" : ""}`}
+                        className={`glass-card-hover sm:p-4 p-3 transition-all relative group ${!device.online ? "opacity-50" : ""}`}
                       >
                         {/* Manage overlay */}
                         {manageMode && (
@@ -518,12 +535,12 @@ export default function DevicesPage() {
 
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2.5">
-                            <div className={`p-2 rounded-lg ${isOn ? "bg-primary/10" : "bg-secondary"}`}>
-                              <Icon className={`w-4 h-4 ${isOn ? "text-primary" : "text-muted-foreground"}`} />
+                            <div className={`p-1.5 sm:p-2 rounded-lg ${isOn ? "bg-primary/10" : "bg-secondary"}`}>
+                              <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isOn ? "text-primary" : "text-muted-foreground"}`} />
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-foreground">{device.name}</div>
-                              <div className="text-xs text-muted-foreground">{device.room}</div>
+                              <div className="text-xs sm:text-sm font-medium text-foreground">{device.name}</div>
+                              <div className="text-[10px] sm:text-xs text-muted-foreground">{device.room}</div>
                             </div>
                           </div>
                           {!manageMode && (
@@ -543,8 +560,8 @@ export default function DevicesPage() {
                           )}
                         </div>
 
-                        {/* IP & MAC */}
-                        <div className="text-[10px] font-mono text-muted-foreground space-y-0.5 mb-3">
+                        {/* IP & MAC (desktop only) */}
+                        <div className="hidden sm:block text-[10px] font-mono text-muted-foreground space-y-0.5 mb-3">
                           <div>IP: {device.ip}</div>
                           {device.mac && <div>MAC: {device.mac}</div>}
                         </div>
@@ -629,9 +646,9 @@ export default function DevicesPage() {
                         )}
 
                         {!device.online && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <WifiOff className="w-3 h-3" />
-                            <span>Device offline</span>
+                          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground mt-1 sm:mt-0">
+                            <WifiOff className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                            <span>Offline</span>
                           </div>
                         )}
                       </motion.div>
@@ -707,47 +724,49 @@ export default function DevicesPage() {
 
       {/* Smart Device Add/Edit Dialog */}
       <Dialog open={smartDialogOpen} onOpenChange={setSmartDialogOpen}>
-        <DialogContent className="bg-popover border-border sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-foreground">
+        <DialogContent className="bg-popover border-border sm:max-w-md p-5 sm:p-6 overflow-hidden max-w-[92vw] sm:rounded-2xl">
+          <DialogHeader className="pb-1">
+            <DialogTitle className="text-lg font-bold text-foreground tracking-tight">
               {editingDevice ? "Edit Smart Device" : "Add Smart Device"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs">Device Name</Label>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground text-[11px] font-medium tracking-wide flex items-center gap-1.5">
+                Device Name
+              </Label>
               <Input
                 value={smartForm.name}
                 onChange={(e) => setSmartForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. Dining Room Light"
-                className="bg-secondary border-border"
+                className="bg-secondary/50 border-border h-9 text-sm focus:ring-1 focus:ring-primary/40"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">Room / Location</Label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Room / Location</Label>
                 <Input
                   value={smartForm.room}
                   onChange={(e) => setSmartForm((f) => ({ ...f, room: e.target.value }))}
                   placeholder="e.g. Dining Room"
-                  className="bg-secondary border-border"
+                  className="bg-secondary/50 border-border h-9 text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">IP Address</Label>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">IP Address</Label>
                 <Input
                   value={smartForm.ip}
                   onChange={(e) => setSmartForm((f) => ({ ...f, ip: e.target.value }))}
                   placeholder="192.168.1.150"
-                  className="bg-secondary border-border font-mono text-xs"
+                  className="bg-secondary/50 border-border h-9 font-mono text-[11px]"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">Brand</Label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Brand</Label>
                 <Select value={smartForm.brand} onValueChange={(v) => setSmartForm((f) => ({ ...f, brand: v }))}>
-                  <SelectTrigger className="bg-secondary border-border">
+                  <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -758,10 +777,10 @@ export default function DevicesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">Type</Label>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Type</Label>
                 <Select value={smartForm.device_type} onValueChange={(v) => setSmartForm((f) => ({ ...f, device_type: v }))}>
-                  <SelectTrigger className="bg-secondary border-border">
+                  <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -774,41 +793,41 @@ export default function DevicesPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">Model (optional)</Label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Model (optional)</Label>
                 <Input
                   value={smartForm.model}
                   onChange={(e) => setSmartForm((f) => ({ ...f, model: e.target.value }))}
-                  placeholder="e.g. WiZ A60 Color"
-                  className="bg-secondary border-border"
+                  placeholder="e.g. WiZ A60"
+                  className="bg-secondary/50 border-border h-9 text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">MAC Address (optional)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">MAC (optional)</Label>
                 <Input
                   value={smartForm.mac}
                   onChange={(e) => setSmartForm((f) => ({ ...f, mac: e.target.value }))}
-                  placeholder="AA:BB:CC:DD:EE:FF"
-                  className="bg-secondary border-border font-mono text-xs"
+                  placeholder="AA:BB:CC..."
+                  className="bg-secondary/50 border-border h-9 font-mono text-[11px]"
                 />
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/50">
             <button
               onClick={() => setSmartDialogOpen(false)}
-              className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex-1 sm:flex-initial px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-all font-medium border border-border"
             >
               Cancel
             </button>
             <button
               onClick={saveSmart}
               disabled={!smartForm.name.trim() || !smartForm.ip.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-[0_0_15px_-5px_hsl(var(--primary)/0.4)] transition-all hover:bg-primary/90 disabled:opacity-50"
             >
               <Check className="w-3.5 h-3.5" />
-              {editingDevice ? "Save" : "Add"}
+              {editingDevice ? "Save Changes" : "Add Device"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -816,46 +835,46 @@ export default function DevicesPage() {
 
       {/* Network Device Add/Edit Dialog */}
       <Dialog open={netDialogOpen} onOpenChange={setNetDialogOpen}>
-        <DialogContent className="bg-popover border-border sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-foreground">
+        <DialogContent className="bg-popover border-border sm:max-w-md p-5 sm:p-6 overflow-hidden max-w-[92vw] sm:rounded-2xl">
+          <DialogHeader className="pb-1">
+            <DialogTitle className="text-lg font-bold text-foreground tracking-tight">
               {editingNetDevice ? "Edit Network Device" : "Add Network Device"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs">Device Name</Label>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Device Name</Label>
               <Input
                 value={netForm.name}
                 onChange={(e) => setNetForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. My Laptop"
-                className="bg-secondary border-border"
+                className="bg-secondary/50 border-border h-9 text-sm"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">IP Address</Label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">IP Address</Label>
                 <Input
                   value={netForm.ip}
                   onChange={(e) => setNetForm((f) => ({ ...f, ip: e.target.value }))}
                   placeholder="192.168.1.100"
-                  className="bg-secondary border-border font-mono text-xs"
+                  className="bg-secondary/50 border-border h-9 font-mono text-[11px]"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground text-xs">MAC Address</Label>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">MAC Address</Label>
                 <Input
                   value={netForm.mac}
                   onChange={(e) => setNetForm((f) => ({ ...f, mac: e.target.value }))}
-                  placeholder="AA:BB:CC:DD:EE:FF"
-                  className="bg-secondary border-border font-mono text-xs"
+                  placeholder="AA:BB:CC..."
+                  className="bg-secondary/50 border-border h-9 font-mono text-[11px]"
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs">Type</Label>
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Type</Label>
               <Select value={netForm.type} onValueChange={(v) => setNetForm((f) => ({ ...f, type: v }))}>
-                <SelectTrigger className="bg-secondary border-border">
+                <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -1,16 +1,37 @@
 import { create } from "zustand";
+import { AuthUser } from "./useAuthStore";
 
 // ── Types ─────────────────────────────────────────────────────
 
+export interface ChatUser {
+  id: number;
+  email: string;
+  display_name: string;
+  role: "assistant" | "member" | "admin";
+  permissions: number;
+  resource_perms: string[];
+  perm_expires_at: string | null;
+  phone: string;
+  is_locked: boolean;
+  access_count: number;
+  last_login_at: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  preferences: Record<string, any>;
+  created_by_id: number;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
 export interface ChatRoom {
   id: number;
   name: string;
-  type: "group" | "direct_ai";
+  type: "group" | "direct_ai" | "DM";
   owner_id: number | null;
   last_msg_text: string | null;
   last_msg_at: string | null;
   last_msg_by: string | null;
   unread_count: number;
+  participants?: ChatUser[];
 }
 
 export interface ChatMessage {
@@ -18,7 +39,7 @@ export interface ChatMessage {
   room_id: number;
   thread_id: number | null;
   sender_id: number | null;
-  sender_name: string;
+  sender: ChatUser | AuthUser;
   role: "user" | "assistant" | "system";
   status: string;
   content: string;
@@ -57,6 +78,13 @@ interface ChatState {
   setLoading: (loading: boolean) => void;
 }
 
+const sortRooms = (rooms: ChatRoom[]) =>
+  [...rooms].sort((a, b) => {
+    const timeA = a.last_msg_at ? new Date(a.last_msg_at).getTime() : 0;
+    const timeB = b.last_msg_at ? new Date(b.last_msg_at).getTime() : 0;
+    return timeB !== timeA ? timeB - timeA : b.id - a.id;
+  });
+
 export const useChatStore = create<ChatState>((set) => ({
   rooms: [],
   activeRoomId: null,
@@ -68,7 +96,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setActiveRoom: (id) => set({ activeRoomId: id }),
 
-  setRooms: (rooms) => set({ rooms }),
+  setRooms: (rooms) => set({ rooms: sortRooms(rooms) }),
 
   setMessages: (roomId, messages) =>
     set((state) => ({
@@ -83,11 +111,18 @@ export const useChatStore = create<ChatState>((set) => ({
 
       // If this is a real message from WS/API, replace any matching optimistic
       // message (negative temp ID, same content + sender) instead of appending
-      const optimisticIdx = msg.id > 0
-        ? existing.findIndex(
-            (m) => m.id < 0 && m.content === msg.content && m.sender_name === msg.sender_name,
-          )
-        : -1;
+      const optimisticIdx =
+        msg.id > 0
+          ? existing.findIndex(
+              (m) =>
+                m.id < 0 &&
+                m.content === msg.content &&
+                (m.sender_id === msg.sender_id ||
+                  (m.sender &&
+                    msg.sender &&
+                    m.sender.email === msg.sender.email)),
+            )
+          : -1;
 
       let updatedList: ChatMessage[];
       if (optimisticIdx !== -1) {
@@ -101,7 +136,6 @@ export const useChatStore = create<ChatState>((set) => ({
         ...state.messages,
         [msg.room_id]: updatedList,
       };
-
       // Update room preview
       const updatedRooms = state.rooms.map((r) =>
         r.id === msg.room_id
@@ -112,7 +146,7 @@ export const useChatStore = create<ChatState>((set) => ({
                   ? msg.content.slice(0, 100) + "..."
                   : msg.content,
               last_msg_at: msg.created_at,
-              last_msg_by: msg.sender_name,
+              last_msg_by: msg.sender?.display_name,
               // Increment unread if not the active room
               unread_count:
                 state.activeRoomId === msg.room_id
@@ -122,7 +156,7 @@ export const useChatStore = create<ChatState>((set) => ({
           : r,
       );
 
-      return { messages: updatedMessages, rooms: updatedRooms };
+      return { messages: updatedMessages, rooms: sortRooms(updatedRooms) };
     }),
 
   setTyping: (roomId, userName, isTyping) =>
@@ -168,10 +202,17 @@ export const useChatStore = create<ChatState>((set) => ({
 
   updateRoomPreview: (roomId, text, by) =>
     set((state) => ({
-      rooms: state.rooms.map((r) =>
-        r.id === roomId
-          ? { ...r, last_msg_text: text, last_msg_by: by, last_msg_at: new Date().toISOString() }
-          : r,
+      rooms: sortRooms(
+        state.rooms.map((r) =>
+          r.id === roomId
+            ? {
+                ...r,
+                last_msg_text: text,
+                last_msg_by: by,
+                last_msg_at: new Date().toISOString(),
+              }
+            : r,
+        ),
       ),
     })),
 

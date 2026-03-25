@@ -18,10 +18,10 @@ const UserProfileDropdown = () => {
   const { user, logout, viewingAsFamily, setViewingAsFamily } = useAuthStore();
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
   const isAdmin = user?.role === "administrator";
-  const displayName = user?.displayName || "User";
-  const initials = displayName
+  const display_name = user?.display_name || "User";
+  const initials = display_name
     .split(" ")
-    .map((w) => w[0])
+    .map((w: string) => w[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
@@ -50,7 +50,7 @@ const UserProfileDropdown = () => {
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
           <div className="hidden md:block text-left">
-            <p className="text-xs font-medium text-foreground">{displayName}</p>
+            <p className="text-xs font-medium text-foreground">{display_name}</p>
             <p className="text-[10px] text-muted-foreground font-mono">
               {effectiveRole === "administrator"
                 ? "root@homelab"
@@ -63,12 +63,13 @@ const UserProfileDropdown = () => {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
-        className="w-56 glass-card-hover border-border"
+        align="center"
+        className="w-[240px] sm:w-56 bg-background/60 backdrop-blur-xl border-white/5 shadow-2xl shadow-black/40 animate-in slide-in-from-top-2"
+        collisionPadding={16}
       >
-        <DropdownMenuLabel className="font-normal">
+        <DropdownMenuLabel className="font-normal p-3">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{displayName}</p>
+            <p className="text-sm font-medium leading-none">{display_name}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user?.email || "user@homelab.local"}
             </p>
@@ -101,7 +102,7 @@ const UserProfileDropdown = () => {
               <Settings className="h-4 w-4" />
               <span>Server Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem
               className="cursor-pointer gap-2 focus:bg-primary/10"
               onClick={toggleHomeView}

@@ -24,6 +24,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const container = {
   hidden: { opacity: 0 },
@@ -79,35 +80,38 @@ const WifiEditCard = ({
   const color = network.is_guest ? "text-amber" : "text-cyan";
 
   return (
-    <motion.div layout className={`glass-card p-4 space-y-3 transition-opacity ${!network.enabled ? "opacity-50" : ""}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg bg-secondary ${network.enabled ? color : "text-muted-foreground"}`}>
+    <motion.div layout className={`glass-card p-3.5 space-y-2.5 transition-opacity ${!network.enabled ? "opacity-50" : ""}`}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`p-2 rounded-lg bg-secondary shrink-0 ${network.enabled ? color : "text-muted-foreground"}`}>
             <IconComponent className="w-4 h-4" />
           </div>
-          <div>
-            {editing ? (
-              <Input
-                value={draftSsid}
-                onChange={(e) => setDraftSsid(e.target.value)}
-                className="h-7 text-sm font-medium bg-secondary/50 border-white/[0.06] w-48"
-              />
-            ) : (
-              <p className="text-sm font-medium text-foreground">{network.ssid}</p>
-            )}
-            <p className="text-[11px] text-muted-foreground">{network.description}</p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              {editing ? (
+                <Input
+                  value={draftSsid}
+                  onChange={(e) => setDraftSsid(e.target.value)}
+                  className="h-7 text-sm font-medium bg-secondary/50 border-white/6 w-36 sm:w-48"
+                />
+              ) : (
+                <p className="text-sm font-semibold text-foreground truncate">{network.ssid}</p>
+              )}
+              <span className="shrink-0 text-[9px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-secondary/80 border-white/3">
+                {network.band}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground truncate opacity-70">{network.description}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
-            {network.band}
-          </span>
-          <span className="text-[10px] font-mono text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="hidden sm:inline-block text-[9px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-secondary/80 border-white/3">
             {network.security}
           </span>
           <Switch
             checked={network.enabled}
             onCheckedChange={() => onToggle(network.id)}
+            className="scale-90"
           />
           {!editing ? (
             <motion.button
@@ -142,19 +146,22 @@ const WifiEditCard = ({
 
       {/* Password row */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-white/[0.04]">
-          {editing ? (
-            <Input
-              type={showPassword ? "text" : "password"}
-              value={draftPassword}
-              onChange={(e) => setDraftPassword(e.target.value)}
-              className="h-6 text-xs font-mono bg-transparent border-none p-0 focus-visible:ring-0"
-            />
-          ) : (
-            <span className="text-xs font-mono text-muted-foreground flex-1">
-              {showPassword ? network.password : "••••••••••••"}
-            </span>
-          )}
+        <div className="flex-1 flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg bg-secondary/50 border-white/4">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <span className="text-[9px] font-mono text-muted-foreground opacity-50 uppercase tracking-widest shrink-0">Pass</span>
+            {editing ? (
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={draftPassword}
+                onChange={(e) => setDraftPassword(e.target.value)}
+                className="h-5 text-xs font-mono bg-transparent border-none p-0 focus-visible:ring-0 w-full"
+              />
+            ) : (
+              <span className="text-xs font-mono text-muted-foreground truncate">
+                {showPassword ? network.password : "••••••••••••"}
+              </span>
+            )}
+          </div>
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowPassword(!showPassword)}
@@ -329,17 +336,17 @@ export default function NetworkPage() {
             </div>
             <div className="space-y-2">
               {interfaces.map((iface) => (
-                <div key={iface.name} className="flex items-center justify-between py-2.5 px-3 bg-secondary/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className={`w-2 h-2 rounded-full ${iface.status === "active" ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
-                    <div>
-                      <span className="font-mono text-sm text-foreground">{iface.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{iface.type}</span>
+                <div key={iface.name} className="flex items-center justify-between py-1.5 px-3 bg-secondary/30 rounded-lg border-white/2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${iface.status === "active" ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
+                    <div className="flex items-baseline gap-2 truncate">
+                      <span className="font-mono text-xs font-semibold text-foreground">{iface.name}</span>
+                      <span className="text-[10px] text-muted-foreground opacity-60">{iface.type}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-mono text-xs text-foreground">{iface.ip}</div>
-                    <div className="text-[10px] text-muted-foreground">{iface.speed}</div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="font-mono text-[11px] text-foreground">{iface.ip}</div>
+                    <div className="text-[9px] font-mono text-muted-foreground opacity-70 w-16 text-right">{iface.speed}</div>
                   </div>
                 </div>
               ))}
@@ -354,14 +361,14 @@ export default function NetworkPage() {
             </div>
             <div className="space-y-2">
               {status.ports.map((p) => (
-                <div key={p.port} className="flex items-center justify-between py-2.5 px-3 bg-secondary/50 rounded-lg">
+                <div key={p.port} className="flex items-center justify-between py-1.5 px-3 bg-secondary/30 rounded-lg border-white/2">
                   <div className="flex items-center gap-2.5">
-                    <span className={`w-2 h-2 rounded-full ${p.open ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
-                    <span className="font-mono text-sm text-foreground">:{p.port}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${p.open ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
+                    <span className="font-mono text-xs font-semibold text-foreground">:{p.port}</span>
+                    <span className="text-[10px] text-muted-foreground opacity-60 ml-1">{p.service}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{p.service}</span>
-                    <span className={`status-badge text-[10px] ${p.open ? "bg-emerald/10 text-emerald" : "bg-secondary text-muted-foreground"}`}>
+                    <span className={`status-badge text-[9px] py-0.5! px-2! ${p.open ? "bg-emerald/10 text-emerald border border-emerald/20" : "bg-secondary text-muted-foreground"}`}>
                       {p.open ? "LISTENING" : "CLOSED"}
                     </span>
                   </div>
@@ -380,27 +387,25 @@ export default function NetworkPage() {
               {status.ssh_attempts.length} connections
             </span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-1.5">
             {status.ssh_attempts.map((attempt, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="flex items-center justify-between py-2.5 px-3 bg-secondary/50 rounded-lg"
+                className="flex items-center justify-between py-1.5 px-3 bg-secondary/30 rounded-lg border-white/2"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-2 h-2 rounded-full ${attempt.success ? "bg-emerald" : "bg-crimson"}`} />
-                  <span className="font-mono text-sm text-foreground">{attempt.ip}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`status-badge text-[10px] ${attempt.success ? "bg-emerald/10 text-emerald" : "bg-crimson/10 text-crimson"}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${attempt.success ? "bg-emerald" : "bg-crimson"}`} />
+                  <span className="font-mono text-xs font-bold text-foreground truncate">{attempt.ip}</span>
+                  <span className={`status-badge text-[9px] shrink-0 py-0.5! px-2! ${attempt.success ? "bg-emerald/10 text-emerald border border-emerald/20" : "bg-crimson/10 text-crimson border border-crimson/20"}`}>
                     {attempt.success ? "ESTABLISHED" : "REJECTED"}
                   </span>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    {formatTime(attempt.timestamp)}
-                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 text-[10px] font-mono text-muted-foreground opacity-60">
+                  <Clock className="w-3 h-3" />
+                  {formatTime(attempt.timestamp)}
                 </div>
               </motion.div>
             ))}

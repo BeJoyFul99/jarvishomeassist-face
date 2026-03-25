@@ -51,8 +51,8 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
   }, [_hasHydrated, isAuthenticated, router]);
 
   React.useEffect(() => {
-    initialize();
     setIsMobile(isMobile);
+    initialize();
   }, [isMobile, setIsMobile, initialize]);
 
   // Show nothing until hydration is complete — prevents login flash
@@ -60,8 +60,8 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="group/sidebar-wrapper flex min-h-svh w-full has-[data-variant=inset]:bg-sidebar">
-        <div className="min-h-screen flex w-full bg-background">
+      <div className="group/sidebar-wrapper flex h-svh w-full has-[data-variant=inset]:bg-sidebar overflow-hidden">
+        <div className="h-full flex w-full bg-background">
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
             {/* Global Fleet Ticker — Admin only */}

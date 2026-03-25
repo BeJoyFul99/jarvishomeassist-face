@@ -82,9 +82,11 @@ export default function NotificationCenter() {
         </motion.button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[380px] p-0 bg-card border-border"
-        align="end"
+        className="w-[280px] sm:w-[380px] p-0 bg-background/60 backdrop-blur-xl border-white/5 shadow-2xl shadow-black/40 animate-in slide-in-from-top-2"
+        align="center"
+        alignOffset={0}
         sideOffset={8}
+        collisionPadding={16}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3">
@@ -123,7 +125,7 @@ export default function NotificationCenter() {
             )}
           </div>
         </div>
-        <Separator className="bg-border" />
+        <Separator className="bg-white/5" />
 
         {/* List */}
         <ScrollArea className="max-h-[400px]">
@@ -157,7 +159,7 @@ export default function NotificationCenter() {
                           {n.title}
                         </span>
                         {!n.read && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan flex-shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan shrink-0" />
                         )}
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">

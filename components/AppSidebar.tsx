@@ -44,6 +44,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/useMobile";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,6 +114,7 @@ const nodeStatusColors: Record<string, string> = {
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const isMobile = useIsMobile();
   const collapsed = state === "collapsed";
   const currentPath = usePathname();
   const { activeNode, nodes, setActiveNodeId } = useFleet();
@@ -237,9 +239,11 @@ export function AppSidebar() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      side="right"
-                      align="start"
-                      className="w-56 bg-popover border-border"
+                      side={isMobile ? "bottom" : "right"}
+                      align={isMobile ? "center" : "start"}
+                      className="w-[240px] sm:w-56 bg-background/60 backdrop-blur-xl border-white/5 shadow-2xl shadow-black/40 animate-in slide-in-from-bottom-2 md:slide-in-from-left-2"
+                      sideOffset={8}
+                      collisionPadding={16}
                     >
                       {nodes.map((node) => {
                         const Icon = nodeIcons[node.type] || Server;
