@@ -28,7 +28,7 @@ const ProfilePage = () => {
   const isGuest = user?.role === "guest";
 
   const [profile, setProfile] = useState({
-    displayName: user?.displayName || "User",
+    displayName: user?.display_name || "User",
     username: isAdmin ? "root" : "member",
     email: user?.email || "user@homelab.local",
     hostname: "homelab",

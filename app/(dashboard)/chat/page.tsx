@@ -1045,7 +1045,7 @@ export default function ChatPage() {
 
               {/* Textarea */}
               <div className="flex-1 relative">
-                <input
+                <textarea
                   ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}

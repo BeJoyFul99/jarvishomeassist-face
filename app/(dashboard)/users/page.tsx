@@ -873,7 +873,7 @@ const UserManagementPage = () => {
           <div className="pt-2 border-t border-border">
             <p className="text-[11px] font-mono text-muted-foreground">
               Signed in as{" "}
-              <span className="text-foreground">{authUser?.displayName || authUser?.email}</span>
+              <span className="text-foreground">{authUser?.display_name || authUser?.email}</span>
               {" · "}
               <span className="uppercase">{authUser?.role}</span>
             </p>
