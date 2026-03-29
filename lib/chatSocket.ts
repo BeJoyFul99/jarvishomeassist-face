@@ -22,7 +22,7 @@ export interface ChatWSMessage {
  */
 function deriveWsUrl(): string {
   const raw =
-    process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_GO_BACKEND_URL;
+    process.env.NEXT_PUBLIC_WS_URL || process.env.GO_BACKEND_URL;
   if (!raw) return "wss://api.angelandmomo.dpdns.org";
 
   try {

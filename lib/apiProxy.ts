@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_GO_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = process.env.GO_BACKEND_URL || "http://localhost:5000";
 console.log("API Proxy BACKEND_URL:", BACKEND_URL);
 /**
  * Proxy a request to the Go backend, forwarding the Authorization header.
@@ -27,7 +27,7 @@ export async function proxyToBackend(
   };
 
   // Only include body for non-GET requests
-  if (method !== "GET" && method !== "DELETE") {
+  if (method !== "GET") {
     try {
       const body = await request.json();
       fetchOpts.body = JSON.stringify(body);

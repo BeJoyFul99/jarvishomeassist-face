@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { type FleetNode } from "@/store/useFleetStore";
 
 export async function GET() {
-  const backendUrl = process.env.NEXT_PUBLIC_GO_BACKEND_URL || "http://localhost:5000";
+  const backendUrl = process.env.GO_BACKEND_URL || "http://localhost:5000";
   try {
     const res = await fetch(`${backendUrl}/api/v1/status`, {
       cache: "no-store",

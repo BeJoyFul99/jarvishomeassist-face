@@ -73,6 +73,8 @@ interface ChatState {
   setStreamingContent: (roomId: number, content: string) => void;
   clearStreamingContent: (roomId: number) => void;
   updateMessage: (roomId: number, tempId: number, msg: ChatMessage) => void;
+  editMessage: (roomId: number, msg: ChatMessage) => void;
+  deleteMessage: (roomId: number, messageId: number) => void;
   updateRoomPreview: (roomId: number, text: string, by: string) => void;
   decrementUnread: (roomId: number) => void;
   setLoading: (loading: boolean) => void;
@@ -196,6 +198,28 @@ export const useChatStore = create<ChatState>((set) => ({
         messages: {
           ...state.messages,
           [roomId]: existing.map((m) => (m.id === tempId ? msg : m)),
+        },
+      };
+    }),
+
+  editMessage: (roomId, msg) =>
+    set((state) => {
+      const existing = state.messages[roomId] || [];
+      return {
+        messages: {
+          ...state.messages,
+          [roomId]: existing.map((m) => (m.id === msg.id ? { ...m, content: msg.content } : m)),
+        },
+      };
+    }),
+
+  deleteMessage: (roomId, messageId) =>
+    set((state) => {
+      const existing = state.messages[roomId] || [];
+      return {
+        messages: {
+          ...state.messages,
+          [roomId]: existing.filter((m) => m.id !== messageId),
         },
       };
     }),

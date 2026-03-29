@@ -16,11 +16,15 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Sparkles,
-  ChevronLeft,
   ArrowDown,
   Menu,
   User,
   Box,
+  Pencil,
+  Trash2,
+  Copy,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -30,8 +34,15 @@ import {
   type ChatRoom,
 } from "@/store/useChatStore";
 import { useChatSocket } from "@/hooks/useChatSocket";
-import Image from "next/image";
 import { toast } from "sonner";
+
+const MEDIA_BASE_URL = process.env.NEXT_PUBLIC_MEDIA_URL || "";
+
+function resolveMediaUrl(url: string | null): string {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  return `${MEDIA_BASE_URL}${url}`;
+}
 
 // ── Animations ───────────────────────────────────────────────
 
@@ -91,6 +102,8 @@ export default function ChatPage() {
   const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [showMembersMobile, setShowMembersMobile] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [selectedMsg, setSelectedMsg] = useState<ChatMessage | null>(null);
+  const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
   const forceScrollRef = useRef(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
@@ -99,11 +112,69 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionRef = useRef<HTMLDivElement>(null);
 
+  const editMessage = useChatStore((s) => s.editMessage);
+  const deleteMessage = useChatStore((s) => s.deleteMessage);
+
   const authHeaders = useCallback(() => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
     if (token) h["Authorization"] = `Bearer ${token}`;
     return h;
   }, [token]);
+
+  const selectedIsOwn = selectedMsg
+    ? selectedMsg.sender_id !== null && selectedMsg.sender?.email === user?.email
+    : false;
+
+  const handleCopyMsg = useCallback(() => {
+    if (!selectedMsg) return;
+    navigator.clipboard.writeText(selectedMsg.content);
+    toast.success("Copied to clipboard");
+    setSelectedMsg(null);
+  }, [selectedMsg]);
+
+  const handleEditMsg = useCallback(() => {
+    if (!selectedMsg) return;
+    setEditingMsgId(selectedMsg.id);
+    setSelectedMsg(null);
+  }, [selectedMsg]);
+
+  const handleEditSave = useCallback(async (msgId: number, roomId: number, newContent: string) => {
+    try {
+      const res = await fetch(`/api/chat/rooms/${roomId}/messages/${msgId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content: newContent }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        editMessage(roomId, updated);
+      } else {
+        toast.error("Failed to edit message");
+      }
+    } catch {
+      toast.error("Failed to edit message");
+    }
+    setEditingMsgId(null);
+  }, [token, editMessage]);
+
+  const handleDeleteMsg = useCallback(async () => {
+    if (!selectedMsg) return;
+    const { id, room_id } = selectedMsg;
+    setSelectedMsg(null);
+    try {
+      const res = await fetch(`/api/chat/rooms/${room_id}/messages/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        deleteMessage(room_id, id);
+      } else {
+        toast.error("Failed to delete message");
+      }
+    } catch {
+      toast.error("Failed to delete message");
+    }
+  }, [selectedMsg, token, deleteMessage]);
 
   const activeRoom = useMemo(() => {
     return rooms.find((r) => r.id === activeRoomId);
@@ -273,6 +344,12 @@ export default function ChatPage() {
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
+  }, [activeRoomId]);
+
+  // Clear selection when switching rooms
+  useEffect(() => {
+    setSelectedMsg(null);
+    setEditingMsgId(null);
   }, [activeRoomId]);
 
   // ── Mark as seen ─────────────────────────────────────────
@@ -682,95 +759,162 @@ export default function ChatPage() {
 
       {/* ── Message Area ─────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-linear-to-b from-card/30 via-background/80 to-background">
-        {/* Header */}
+        {/* Header / Selection Action Bar */}
         <div className="bg-card/60 backdrop-blur-xl border-b border-border/40 px-4 py-3 shrink-0">
-          <div className="flex items-center gap-1.5">
-            {/* Mobile: sidebar nav + room switcher */}
-            {isMobile && (
-              <>
+          <AnimatePresence mode="wait">
+            {selectedMsg ? (
+              <motion.div
+                key="action-bar"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-1"
+              >
                 <button
                   type="button"
-                  onClick={toggleSidebar}
+                  onClick={() => setSelectedMsg(null)}
                   className="p-2 -ml-1 rounded-xl hover:bg-secondary/50 transition-colors"
-                  title="Menu"
                 >
-                  <Menu className="w-5 h-5 text-muted-foreground" />
+                  <X className="w-5 h-5 text-foreground" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowRoomsMobile(true)}
-                  className="p-1.5 rounded-xl hover:bg-secondary/50 transition-colors"
-                  title="Switch chat"
-                >
-                  <Box className="w-5 h-5 text-foreground" />
-                </button>
-              </>
-            )}
-
-            {/* Room icon + name */}
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              {activeRoom?.type === "group" ? (
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                  <Users className="w-5 h-5 text-blue-400" />
-                </div>
-              ) : (
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 relative">
-                  <Bot className="w-5 h-5 text-emerald-400" />
-                  {(activeAiStatus === "thinking" ||
-                    activeAiStatus === "responding") && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-sm font-medium text-foreground flex-1">1</span>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedMsg(null); setReplyTo(selectedMsg); }}
+                    className="p-2.5 rounded-xl hover:bg-secondary/50 transition-colors"
+                    title="Reply"
+                  >
+                    <Reply className="w-5 h-5 text-foreground" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyMsg}
+                    className="p-2.5 rounded-xl hover:bg-secondary/50 transition-colors"
+                    title="Copy"
+                  >
+                    <Copy className="w-5 h-5 text-foreground" />
+                  </button>
+                  {selectedIsOwn && selectedMsg.type !== "image" && (
+                    <button
+                      type="button"
+                      onClick={handleEditMsg}
+                      className="p-2.5 rounded-xl hover:bg-secondary/50 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="w-5 h-5 text-foreground" />
+                    </button>
+                  )}
+                  {selectedIsOwn && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteMsg}
+                      className="p-2.5 rounded-xl hover:bg-red-500/10 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-5 h-5 text-red-400" />
+                    </button>
                   )}
                 </div>
-              )}
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-foreground truncate">
-                  {activeRoom?.name || "Select a chat"}
-                </h2>
-                {typingText ? (
-                  <div className="flex items-center gap-1.5">
-                    <TypingDots />
-                    <p className="text-xs text-emerald-400">{typingText}</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="normal-header"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-1.5"
+              >
+                {/* Mobile: sidebar nav + room switcher */}
+                {isMobile && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={toggleSidebar}
+                      className="p-2 -ml-1 rounded-xl hover:bg-secondary/50 transition-colors"
+                      title="Menu"
+                    >
+                      <Menu className="w-5 h-5 text-muted-foreground" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowRoomsMobile(true)}
+                      className="p-1.5 rounded-xl hover:bg-secondary/50 transition-colors"
+                      title="Switch chat"
+                    >
+                      <Box className="w-5 h-5 text-foreground" />
+                    </button>
+                  </>
+                )}
+
+                {/* Room icon + name */}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {activeRoom?.type === "group" ? (
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5 text-blue-400" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 relative">
+                      <Bot className="w-5 h-5 text-emerald-400" />
+                      {(activeAiStatus === "thinking" ||
+                        activeAiStatus === "responding") && (
+                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                      )}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-semibold text-foreground truncate">
+                      {activeRoom?.name || "Select a chat"}
+                    </h2>
+                    {typingText ? (
+                      <div className="flex items-center gap-1.5">
+                        <TypingDots />
+                        <p className="text-xs text-emerald-400">{typingText}</p>
+                      </div>
+                    ) : activeRoom?.type === "direct_ai" ? (
+                      <p className="text-xs text-muted-foreground">AI Assistant</p>
+                    ) : activeRoom ? (
+                      <p className="text-xs text-muted-foreground">
+                        {roomMembers.length > 0
+                          ? `${roomMembers.length} member${roomMembers.length === 1 ? "" : "s"}`
+                          : "Private chat"}
+                      </p>
+                    ) : null}
                   </div>
-                ) : activeRoom?.type === "direct_ai" ? (
-                  <p className="text-xs text-muted-foreground">AI Assistant</p>
-                ) : activeRoom ? (
-                  <p className="text-xs text-muted-foreground">
-                    {roomMembers.length > 0
-                      ? `${roomMembers.length} member${roomMembers.length === 1 ? "" : "s"}`
-                      : "Private chat"}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+                </div>
 
-            {/* Members panel toggle (desktop) */}
-            {activeRoom && !isMobile && (
-              <button
-                type="button"
-                onClick={() => setShowMembersPanel((s) => !s)}
-                className={`p-2 rounded-xl transition-colors ${
-                  showMembersPanel
-                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                    : "hover:bg-secondary/50 text-muted-foreground"
-                }`}
-                title="Room members"
-              >
-                <Users className="w-5 h-5" />
-              </button>
-            )}
+                {/* Members panel toggle (desktop) */}
+                {activeRoom && !isMobile && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMembersPanel((s) => !s)}
+                    className={`p-2 rounded-xl transition-colors ${
+                      showMembersPanel
+                        ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                        : "hover:bg-secondary/50 text-muted-foreground"
+                    }`}
+                    title="Room members"
+                  >
+                    <Users className="w-5 h-5" />
+                  </button>
+                )}
 
-            {/* Mobile members toggle */}
-            {activeRoom && isMobile && (
-              <button
-                type="button"
-                onClick={() => setShowMembersMobile(true)}
-                className="p-2 rounded-xl hover:bg-secondary/50 text-muted-foreground transition-colors"
-                title="Room members"
-              >
-                <Users className="w-5 h-5" />
-              </button>
+                {/* Mobile members toggle */}
+                {activeRoom && isMobile && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMembersMobile(true)}
+                    className="p-2 rounded-xl hover:bg-secondary/50 text-muted-foreground transition-colors"
+                    title="Room members"
+                  >
+                    <Users className="w-5 h-5" />
+                  </button>
+                )}
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
 
         {/* Messages */}
@@ -821,6 +965,12 @@ export default function ChatPage() {
                     isGroup={activeRoom?.type === "group"}
                     onReply={() => setReplyTo(entry.msg)}
                     onScrollToReply={scrollToMessage}
+                    isSelected={selectedMsg?.id === entry.msg.id}
+                    onSelect={setSelectedMsg}
+                    isEditing={editingMsgId === entry.msg.id}
+                    onEditStart={() => setEditingMsgId(entry.msg.id)}
+                    onEditSave={handleEditSave}
+                    onEditCancel={() => setEditingMsgId(null)}
                   />
                 ),
               )}
@@ -1903,28 +2053,178 @@ function ImageWithFallback({
   );
 }
 
+function MessageDropdown({
+  isOwn,
+  isAI,
+  isImage,
+  onReply,
+  onCopy,
+  onEdit,
+  onDelete,
+}: {
+  isOwn: boolean;
+  isAI: boolean;
+  isImage: boolean;
+  onReply: () => void;
+  onCopy: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className={`absolute top-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity ${
+      isOwn ? "left-2" : "right-2"
+    }`}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className={`rounded-full p-0.5 transition-colors ${
+          isOwn
+            ? "bg-cyan-500/20 hover:bg-cyan-500/30"
+            : isAI
+              ? "bg-emerald-500/20 hover:bg-emerald-500/30"
+              : "bg-white/10 hover:bg-white/20"
+        }`}
+      >
+        <ChevronDown className="w-4 h-4 text-white/70" />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className={`absolute top-8 min-w-[140px] py-1 rounded-xl bg-card/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 ${
+              isOwn ? "left-0" : "right-0"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onReply(); }}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-foreground hover:bg-white/8 transition-colors"
+            >
+              <Reply className="w-4 h-4 text-muted-foreground" />
+              Reply
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onCopy(); }}
+              className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-foreground hover:bg-white/8 transition-colors"
+            >
+              <Copy className="w-4 h-4 text-muted-foreground" />
+              Copy
+            </button>
+            {onEdit && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-foreground hover:bg-white/8 transition-colors"
+              >
+                <Pencil className="w-4 h-4 text-muted-foreground" />
+                Edit
+              </button>
+            )}
+            {onDelete && (
+              <>
+                <div className="mx-2.5 my-0.5 border-t border-white/5" />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function MessageBubble({
   msg,
   isOwn,
   isGroup,
   onReply,
   onScrollToReply,
+  isSelected,
+  onSelect,
+  isEditing,
+  onEditStart,
+  onEditSave,
+  onEditCancel,
 }: {
   msg: ChatMessage;
   isOwn: boolean;
   isGroup: boolean;
   onReply: () => void;
   onScrollToReply: (msgId: number) => void;
+  isSelected: boolean;
+  onSelect: (msg: ChatMessage | null) => void;
+  isEditing: boolean;
+  onEditStart: () => void;
+  onEditSave: (msgId: number, roomId: number, content: string) => void;
+  onEditCancel: () => void;
 }) {
   const isAI = msg.role === "assistant";
   const isImage = msg.type === "image";
   const isSending = msg.status === "sending";
   const isFailed = msg.status === "failed";
 
+  const [editText, setEditText] = useState(msg.content);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
+
+  // Reset edit text when entering edit mode
+  useEffect(() => {
+    if (isEditing) setEditText(msg.content);
+  }, [isEditing, msg.content]);
+
+  // Long-press to select (mobile — like WhatsApp)
+  const handleTouchStart = () => {
+    longPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      if (!isSending && !isFailed) onSelect(msg);
+    }, 500);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    // Prevent tap from firing after long-press
+    if (longPressTriggered.current) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div
       data-msg-id={msg.id}
-      className={`flex ${isOwn ? "justify-end" : "justify-start"} group py-0.5 transition-colors duration-700`}
+      className={`flex ${isOwn ? "justify-end" : "justify-start"} group py-0.5 transition-colors duration-200 ${
+        isSelected ? "bg-cyan-500/10 rounded-xl py-2 px-2" : ""
+      }`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
     >
       <div
         className={`relative max-w-[85%] sm:max-w-md md:max-w-lg ${isSending ? "opacity-60" : ""}`}
@@ -1958,7 +2258,7 @@ function MessageBubble({
           {isImage && msg.media_url && (
             <div className="p-1.5 pb-0">
               <ImageWithFallback
-                src={msg.media_url}
+                src={resolveMediaUrl(msg.media_url)}
                 alt={msg.content || "image message"}
                 className="w-full h-auto max-h-80 object-cover rounded-xl border border-white/5 shadow-sm"
               />
@@ -1972,64 +2272,100 @@ function MessageBubble({
             </div>
           )}
 
-          {/* Text */}
-          {(!isImage || !msg.media_url) && msg.content && (
-            <div
-              className={`px-4.5 py-2.5 text-sm leading-relaxed ${isImage ? "bg-white/5" : ""}`}
-            >
-              {/* Reply reference */}
-              {msg.reply_to && (
+          {/* Edit mode */}
+          {isEditing ? (
+            <div className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+              <textarea
+                autoFocus
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEditSave(msg.id, msg.room_id, editText); }
+                  if (e.key === "Escape") onEditCancel();
+                }}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                rows={Math.min(editText.split("\n").length, 4)}
+              />
+              <div className="flex justify-end gap-2 mt-1.5">
                 <button
                   type="button"
-                  onClick={() => onScrollToReply(msg.reply_to!.id)}
-                  className={`mb-3.5 flex items-stretch gap-3 w-full text-left group/reply transition-all active:scale-[0.98] cursor-pointer`}
+                  onClick={(e) => { e.stopPropagation(); onEditCancel(); }}
+                  className="text-[11px] px-2.5 py-1 rounded-lg text-muted-foreground hover:bg-white/10 transition-colors"
                 >
-                  <div
-                    className={`w-1 rounded-full shrink-0 ${isOwn ? "bg-white/30" : "bg-cyan-500/40"}`}
-                  />
-                  <div
-                    className={`flex-1 min-w-0 py-1.5 px-3 rounded-xl border border-white/5 transition-colors ${
-                      isOwn
-                        ? "bg-white/10 group-hover/reply:bg-white/15"
-                        : "bg-cyan-500/8 group-hover/reply:bg-cyan-500/12"
-                    }`}
-                  >
-                    <span
-                      className={`text-[11px] font-bold block mb-0.5 ${isOwn ? "text-white" : "text-cyan-400"}`}
-                    >
-                      {msg?.reply_to.sender?.display_name}
-                    </span>
-                    <p
-                      className={`text-[11px] truncate ${isOwn ? "text-white/60" : "text-muted-foreground/80"}`}
-                    >
-                      {msg?.reply_to.content}
-                    </p>
-                  </div>
+                  Cancel
                 </button>
-              )}
-              {isAI ? (
-                <div className="prose prose-sm prose-invert prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-code:text-emerald-300 prose-code:bg-emerald-500/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-lg prose-code:text-[11px] prose-pre:bg-black/40 prose-pre:rounded-xl max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <HighlightMentions text={msg.content} isOwn={isOwn} />
-              )}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onEditSave(msg.id, msg.room_id, editText); }}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors flex items-center gap-1"
+                >
+                  <Check className="w-3 h-3" />
+                  Save
+                </button>
+              </div>
             </div>
+          ) : (
+            /* Text */
+            (!isImage || !msg.media_url) && msg.content && (
+              <div
+                className={`px-4.5 py-2.5 text-sm leading-relaxed ${isImage ? "bg-white/5" : ""}`}
+              >
+                {/* Reply reference */}
+                {msg.reply_to && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onScrollToReply(msg.reply_to!.id); }}
+                    className={`mb-3.5 flex items-stretch gap-3 w-full text-left group/reply transition-all active:scale-[0.98] cursor-pointer`}
+                  >
+                    <div
+                      className={`w-1 rounded-full shrink-0 ${isOwn ? "bg-white/30" : "bg-cyan-500/40"}`}
+                    />
+                    <div
+                      className={`flex-1 min-w-0 py-1.5 px-3 rounded-xl border border-white/5 transition-colors ${
+                        isOwn
+                          ? "bg-white/10 group-hover/reply:bg-white/15"
+                          : "bg-cyan-500/8 group-hover/reply:bg-cyan-500/12"
+                      }`}
+                    >
+                      <span
+                        className={`text-[11px] font-bold block mb-0.5 ${isOwn ? "text-white" : "text-cyan-400"}`}
+                      >
+                        {msg?.reply_to.sender?.display_name}
+                      </span>
+                      <p
+                        className={`text-[11px] truncate ${isOwn ? "text-white/60" : "text-muted-foreground/80"}`}
+                      >
+                        {msg?.reply_to.content}
+                      </p>
+                    </div>
+                  </button>
+                )}
+                {isAI ? (
+                  <div className="prose prose-sm prose-invert prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-code:text-emerald-300 prose-code:bg-emerald-500/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-lg prose-code:text-[11px] prose-pre:bg-black/40 prose-pre:rounded-xl max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <HighlightMentions text={msg.content} isOwn={isOwn} />
+                )}
+              </div>
+            )
           )}
         </div>
 
-        {/* Reply button on hover */}
-        <button
-          type="button"
-          onClick={onReply}
-          className={`absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-card border border-border/30 rounded-lg p-1.5 shadow-lg ${
-            isOwn ? "-left-8" : "-right-8"
-          }`}
-        >
-          <Reply className="w-3 h-3 text-muted-foreground" />
-        </button>
+        {/* Hover dropdown — like WhatsApp */}
+        {!isSending && !isFailed && !isEditing && (
+          <MessageDropdown
+            isOwn={isOwn}
+            isAI={isAI}
+            isImage={isImage}
+            onReply={() => onReply()}
+            onCopy={() => { navigator.clipboard.writeText(msg.content); toast.success("Copied"); }}
+            onEdit={isOwn && !isImage ? () => onEditStart() : undefined}
+            onDelete={isOwn ? () => onSelect(msg) : undefined}
+          />
+        )}
 
         {/* Timestamp + status */}
         <div
@@ -2065,12 +2401,12 @@ function MessageBubble({
 function HighlightMentions({ text, isOwn }: { text: string; isOwn: boolean }) {
   const parts = text.split(/(@\w+)/g);
   return (
-    <>
+    <span className="inline-flex flex-wrap items-center gap-1">
       {parts.map((part, i) =>
         /^@\w+/.test(part) ? (
           <span
             key={i}
-            className="font-bold inline-block px-2 py-0.5 rounded-full text-[13px] text-cyan-400 bg-cyan-500/15 border border-cyan-500/10 shadow-sm"
+            className="font-bold inline-flex items-center px-2 py-0.5 rounded-full text-[13px] text-cyan-400 bg-cyan-500/15 border border-cyan-500/10 shadow-sm leading-none"
           >
             {part}
           </span>
@@ -2078,7 +2414,7 @@ function HighlightMentions({ text, isOwn }: { text: string; isOwn: boolean }) {
           <span key={i}>{part}</span>
         ),
       )}
-    </>
+    </span>
   );
 }
 

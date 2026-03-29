@@ -14,6 +14,8 @@ export function useChatSocket() {
   const token = useAuthStore((s) => s.token);
   const activeRoomId = useChatStore((s) => s.activeRoomId);
   const addMessage = useChatStore((s) => s.addMessage);
+  const editMessage = useChatStore((s) => s.editMessage);
+  const deleteMessage = useChatStore((s) => s.deleteMessage);
   const messages = useChatStore((s) => s.messages);
   const setTyping = useChatStore((s) => s.setTyping);
   const setAiStatus = useChatStore((s) => s.setAiStatus);
@@ -82,6 +84,21 @@ export function useChatSocket() {
           break;
         }
 
+        case "chat:edited": {
+          const edited = event.data as ChatMessage;
+          editMessage(edited.room_id, edited);
+          break;
+        }
+
+        case "chat:deleted": {
+          const { room_id, message_id } = event.data as {
+            room_id: number;
+            message_id: number;
+          };
+          deleteMessage(room_id, message_id);
+          break;
+        }
+
         case "chat:seen":
           // Could update a seen-by list in the future
           break;
@@ -90,7 +107,7 @@ export function useChatSocket() {
 
     const unsubscribe = chatSocket.subscribe(handler);
     return unsubscribe;
-  }, [addMessage, setTyping, setAiStatus, setStreamingContent, clearStreamingContent]);
+  }, [addMessage, editMessage, deleteMessage, setTyping, setAiStatus, setStreamingContent, clearStreamingContent]);
 
   // ── Typing indicator (debounced) ─────────────────────────
 

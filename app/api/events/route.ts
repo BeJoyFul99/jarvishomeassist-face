@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_GO_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = process.env.GO_BACKEND_URL || "http://localhost:5000";
 
 // GET /api/events → streams SSE from Go backend GET /api/v1/events
 // Uses a ReadableStream pipe to keep the connection alive properly.

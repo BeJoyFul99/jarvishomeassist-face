@@ -25,6 +25,7 @@ interface JwtPayload {
 interface AuthState {
   user: AuthUser | null;
   token: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   /** Administrator previewing the family_member UI */
   viewingAsFamily: boolean;
@@ -37,9 +38,11 @@ interface AuthState {
   /** Check if current user has a specific resource permission */
   hasPermission: (perm: string) => boolean;
 
-  login: (token: string) => void;
+  login: (token: string, refreshToken?: string) => void;
   logout: () => void;
   setViewingAsFamily: (v: boolean) => void;
+  /** Attempt to refresh the JWT using the stored refresh token */
+  refresh: () => Promise<boolean>;
 }
 
 function decodeJwt(token: string): JwtPayload | null {
@@ -75,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       viewingAsFamily: false,
       _hasHydrated: false,
@@ -101,7 +105,7 @@ export const useAuthStore = create<AuthState>()(
         return user.resourcePerms.includes(perm);
       },
 
-      login: (token: string) => {
+      login: (token: string, refreshToken?: string) => {
         const payload = decodeJwt(token);
         if (!payload) return;
 
@@ -116,6 +120,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user,
           token,
+          refreshToken: refreshToken ?? get().refreshToken,
           isAuthenticated: true,
           viewingAsFamily: false,
         });
@@ -125,9 +130,38 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           token: null,
+          refreshToken: null,
           isAuthenticated: false,
           viewingAsFamily: false,
         });
+      },
+
+      refresh: async () => {
+        const { token, refreshToken } = get();
+        if (!refreshToken) return false;
+
+        try {
+          const res = await fetch("/api/auth/refresh", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+
+          if (!res.ok) {
+            // Refresh token is invalid/revoked — force logout
+            get().logout();
+            return false;
+          }
+
+          const data = await res.json();
+          get().login(data.token, data.refresh_token);
+          return true;
+        } catch {
+          return false;
+        }
       },
 
       setViewingAsFamily: (v: boolean) => {
@@ -139,6 +173,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
         viewingAsFamily: state.viewingAsFamily,
       }),

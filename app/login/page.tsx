@@ -62,7 +62,7 @@ const LoginPage = () => {
       }
 
       // data.token is a real JWT from the Go backend
-      login(data.token);
+      login(data.token, data.refresh_token);
 
       // Role is now in the Zustand store — redirect accordingly
       const decoded = useAuthStore.getState().user;
@@ -103,7 +103,7 @@ const LoginPage = () => {
         return;
       }
 
-      login(data.token);
+      login(data.token, data.refresh_token);
       const decoded = useAuthStore.getState().user;
       router.push(decoded?.role === "administrator" ? "/dashboard" : "/home");
     } catch {

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Save, RotateCcw, BellRing } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useNotificationStore } from "@/store/useNotificationStore";
+import { subscribeToPush, unsubscribeFromPush, isPushSubscribed } from "@/lib/pushManager";
 import { SettingsForm } from "@/components/SettingsForm";
 import { USER_PREFERENCES, buildDefaults } from "@/lib/settingsSchema";
 
@@ -32,12 +32,45 @@ export default function PreferencesPage() {
   const token = useAuthStore((s) => s.token);
   const [values, setValues] = useState<Record<string, string>>(DEFAULTS);
   const [saving, setSaving] = useState(false);
-  const {
-    browserNotificationsEnabled,
-    setBrowserNotificationsEnabled,
-    browserPermission,
-    requestBrowserPermission,
-  } = useNotificationStore();
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | "default">(
+    typeof Notification !== "undefined" ? Notification.permission : "default",
+  );
+
+  // Check if already subscribed on mount
+  useEffect(() => {
+    isPushSubscribed().then(setPushEnabled);
+  }, []);
+
+  const handlePushToggle = async (enabled: boolean) => {
+    if (!token) return;
+    setPushLoading(true);
+    try {
+      if (enabled) {
+        // Request permission first if needed
+        if (typeof Notification !== "undefined" && Notification.permission === "default") {
+          const perm = await Notification.requestPermission();
+          setPushPermission(perm);
+          if (perm !== "granted") {
+            setPushLoading(false);
+            return;
+          }
+        }
+        const ok = await subscribeToPush(token);
+        setPushEnabled(ok);
+        if (ok) toast.success("Push notifications enabled");
+        else toast.error("Failed to enable push notifications");
+      } else {
+        await unsubscribeFromPush(token);
+        setPushEnabled(false);
+        toast.success("Push notifications disabled");
+      }
+    } catch {
+      toast.error("Push notification error");
+    }
+    setPushLoading(false);
+  };
 
   const authHeaders = useCallback(() => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -126,7 +159,7 @@ export default function PreferencesPage() {
         onChange={handleChange}
       />
 
-      {/* Browser push — special case, lives outside schema (browser API, not stored on server) */}
+      {/* Browser push — Web Push API via service worker */}
       <motion.div variants={item} className="glass-card p-5 space-y-5">
         <h2 className="text-sm font-medium text-foreground">Browser</h2>
         <div className="h-px bg-white/[0.06]" />
@@ -136,20 +169,21 @@ export default function PreferencesPage() {
               Push notifications
             </Label>
             <p className="text-xs text-muted-foreground">
-              {browserPermission === "granted"
-                ? "Native alerts even when tab is unfocused"
-                : browserPermission === "denied"
+              {pushPermission === "granted"
+                ? "Receive reminders and alerts even when the app is closed"
+                : pushPermission === "denied"
                   ? "Blocked by browser — enable in site settings"
-                  : "Send native browser alerts for critical events"}
+                  : "Get notified about reminders and important events"}
             </p>
           </div>
-          {browserPermission === "granted" ? (
-            <Switch
-              checked={browserNotificationsEnabled}
-              onCheckedChange={setBrowserNotificationsEnabled}
-            />
-          ) : browserPermission === "denied" ? (
+          {pushPermission === "denied" ? (
             <span className="text-[11px] font-mono text-crimson">Blocked</span>
+          ) : pushPermission === "granted" || pushEnabled ? (
+            <Switch
+              checked={pushEnabled}
+              disabled={pushLoading}
+              onCheckedChange={handlePushToggle}
+            />
           ) : (
             <motion.div
               whileHover={{ scale: 1.03 }}
@@ -160,7 +194,8 @@ export default function PreferencesPage() {
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs gap-1.5 border-white/[0.06]"
-                onClick={requestBrowserPermission}
+                disabled={pushLoading}
+                onClick={() => handlePushToggle(true)}
               >
                 <BellRing className="w-3.5 h-3.5" />
                 Enable
