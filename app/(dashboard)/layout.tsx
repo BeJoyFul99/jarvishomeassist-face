@@ -15,6 +15,7 @@ import { useFleetNotifications } from "@/hooks/useFleetNotifications";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useNotificationStore } from "@/store/useNotificationStore";
+import { useAuthInterceptor } from "@/hooks/useAuthInterceptor";
 import { useRouteGuard } from "@/components/RouteGuard";
 import { useUserEvents } from "@/hooks/useUserEvents";
 import { formatStorage } from "@/lib/utils";
@@ -39,8 +40,9 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
   useNotificationSocket();
   useRouteGuard();
   useUserEvents();
+  useAuthInterceptor();
 
-  const { isAuthenticated, _hasHydrated, token, refresh } = useAuthStore();
+  const { isAuthenticated, _hasHydrated, token } = useAuthStore();
 
   // Fetch persisted notifications on mount
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
@@ -60,39 +62,6 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
       router.replace("/login");
     }
   }, [_hasHydrated, isAuthenticated, router]);
-
-  // Proactive JWT refresh — renew ~5 minutes before expiry
-  React.useEffect(() => {
-    if (!token) return;
-
-    function getExp(jwt: string): number | null {
-      try {
-        const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-        return payload.exp ?? null;
-      } catch { return null; }
-    }
-
-    function scheduleRefresh() {
-      const exp = getExp(useAuthStore.getState().token ?? "");
-      if (!exp) return undefined;
-
-      const msUntilExpiry = exp * 1000 - Date.now();
-      // Refresh 5 minutes before expiry, or immediately if less than 5 min left
-      const delay = Math.max(msUntilExpiry - 5 * 60 * 1000, 0);
-
-      return setTimeout(async () => {
-        const ok = await useAuthStore.getState().refresh();
-        if (ok) {
-          // Schedule next refresh with the new token
-          timerId = scheduleRefresh();
-        }
-        // If refresh failed, the store will have logged out
-      }, delay);
-    }
-
-    let timerId = scheduleRefresh();
-    return () => { if (timerId) clearTimeout(timerId); };
-  }, [token, refresh]);
 
   React.useEffect(() => {
     setIsMobile(isMobile);

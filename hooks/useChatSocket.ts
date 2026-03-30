@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useChatStore, type ChatMessage } from "@/store/useChatStore";
 import { chatSocket, type ChatWSMessage } from "@/lib/chatSocket";
+import { toast } from "@/hooks/useToast";
 
 /**
  * Connects the shared chat WebSocket and routes incoming events
@@ -12,6 +13,7 @@ import { chatSocket, type ChatWSMessage } from "@/lib/chatSocket";
  */
 export function useChatSocket() {
   const token = useAuthStore((s) => s.token);
+  const currentUser = useAuthStore((s) => s.user);
   const activeRoomId = useChatStore((s) => s.activeRoomId);
   const addMessage = useChatStore((s) => s.addMessage);
   const editMessage = useChatStore((s) => s.editMessage);
@@ -46,6 +48,22 @@ export function useChatSocket() {
             if (replyTarget) msg.reply_to = replyTarget;
           }
           addMessage(msg);
+
+          // Show a toast for messages from others in rooms the user isn't viewing
+          const isOwnMessage = msg.sender?.email === currentUser?.email;
+          const isActiveRoom = activeRoomRef.current === msg.room_id;
+          if (!isOwnMessage && !isActiveRoom && msg.sender) {
+            const preview =
+              msg.type === "image"
+                ? "Sent a photo"
+                : msg.content.length > 60
+                  ? msg.content.slice(0, 60) + "..."
+                  : msg.content;
+            toast({
+              title: msg.sender.display_name,
+              description: preview,
+            });
+          }
 
           // If this room was streaming, clear it (the final message has arrived)
           clearStreamingContent(msg.room_id);

@@ -3,20 +3,20 @@
 import { motion } from "framer-motion";
 import {
   Cloud,
-  Sun,
   Wifi,
   WifiOff,
   Thermometer,
   Clock,
-  MessageSquare,
+  Megaphone,
   ChevronRight,
   Lightbulb,
   Shield,
-  X,
   Pin,
   AlertTriangle,
+  Check,
+  Pencil,
 } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useFleet } from "@/hooks/useFleet";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
@@ -27,7 +27,39 @@ import NetworkPulse from "@/components/home/NetworkPulse";
 import PomodoroRing from "@/components/home/PomodoroRing";
 import EnergyHeatmap from "@/components/home/EnergyHeatmap";
 import WeatherWidget from "@/components/home/WeatherWidget";
-import { ANNOUNCEMENTS, Announcement } from "@/lib/constants";
+import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
+
+// ── Types ────────────────────────────────────────────────
+
+interface Author {
+  id: number;
+  display_name: string;
+  email: string;
+  role: string;
+}
+
+interface AnnouncementItem {
+  id: number;
+  author_id: number;
+  author: Author;
+  title: string;
+  body: string;
+  priority: string;
+  category: string;
+  pinned: boolean;
+  edited_at: string | null;
+  created_at: string;
+  read_count: number;
+  total_users: number;
+  is_read?: boolean;
+}
+
+function authHeaders(token: string | null) {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) h["Authorization"] = `Bearer ${token}`;
+  return h;
+}
 
 const container = {
   hidden: { opacity: 0 },
@@ -60,16 +92,58 @@ const QUICK_LINKS = [
 ];
 
 const HomePage = () => {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const { aggregated } = useFleet();
   const router = useRouter();
-  const [selectedAnnouncement, setSelectedAnnouncement] =
-    useState<Announcement | null>(null);
   const [visibleIndex, setVisibleIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ── Fetch announcements ────────────────────────────────
+
+  const fetchAnnouncements = useCallback(async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const res = await fetch("/api/announcements?per_page=10", {
+        headers: authHeaders(token),
+      });
+      const data = await res.json();
+      if (res.ok && data.announcements?.length > 0) {
+        setAnnouncements(data.announcements);
+      }
+    } catch {
+      // silent fail — widget gracefully shows empty
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchAnnouncements();
+  }, [fetchAnnouncements]);
+
+  // ── Mark read ────────────────────────────────────────
+
+  const markRead = useCallback(
+    async (id: number) => {
+      try {
+        await fetch(`/api/announcements/${id}/read`, {
+          method: "POST",
+          headers: authHeaders(token),
+        });
+        setAnnouncements((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, is_read: true } : a)),
+        );
+      } catch {
+        // silent fail
+      }
+    },
+    [token],
+  );
 
   // Handle manual scroll with non-passive listener to prevent page scroll
   useEffect(() => {
@@ -86,23 +160,26 @@ const HomePage = () => {
 
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [visibleIndex]); // Re-bind or just use a stable handleScroll
+  }, [visibleIndex, announcements]);
 
   const handleScroll = (delta: number) => {
-    setIsExpanded(false); // Collapse on scroll
+    if (announcements.length <= 1) return;
+    setIsExpanded(false);
     if (delta > 0) {
-      setVisibleIndex((prev) => (prev + 1) % ANNOUNCEMENTS.length);
+      setVisibleIndex((prev) => (prev + 1) % announcements.length);
     } else {
       setVisibleIndex(
-        (prev) => (prev - 1 + ANNOUNCEMENTS.length) % ANNOUNCEMENTS.length,
+        (prev) => (prev - 1 + announcements.length) % announcements.length,
       );
     }
   };
 
   const getVisibleAnnouncements = () => {
+    if (announcements.length === 0) return [];
     const items = [];
-    for (let i = 0; i < 3; i++) {
-      items.push(ANNOUNCEMENTS[(visibleIndex + i) % ANNOUNCEMENTS.length]);
+    const count = Math.min(3, announcements.length);
+    for (let i = 0; i < count; i++) {
+      items.push(announcements[(visibleIndex + i) % announcements.length]);
     }
     return items;
   };
@@ -260,7 +337,7 @@ const HomePage = () => {
         <motion.div variants={item} className="relative">
           <div className="flex items-center justify-between mb-3 mt-2">
             <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" /> Household Updates
+              <Megaphone className="w-4 h-4" /> Household Updates
             </h2>
             <motion.button
               whileHover={{ x: 3 }}
@@ -271,131 +348,183 @@ const HomePage = () => {
             </motion.button>
           </div>
 
-          <div
-            ref={scrollRef}
-            className="h-[280px] relative overflow-hidden flex flex-col items-center w-full cursor-ns-resize touch-none"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-          >
-            <AnimatePresence mode="popLayout" initial={false}>
-              {getVisibleAnnouncements().map((a: Announcement, i: number) => (
-                <motion.button
-                  key={a.id}
-                  layout="position"
-                  drag="y"
-                  dragConstraints={{ top: 0, bottom: 0 }}
-                  dragElastic={0.1}
-                  onDragEnd={(_, info) => {
-                    if (info.offset.y < -50) handleScroll(1);
-                    if (info.offset.y > 50) handleScroll(-1);
-                  }}
-                  initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                  animate={{
-                    opacity: i === 1 ? 1 : 0.4,
-                    y: i === 0 ? 0 : i === 1 ? 80 : 160, // Refined vertical spacing
-                    scale: i === 1 ? 1 : 0.85,
-                    zIndex: i === 1 ? 30 : i === 0 ? 20 : 10,
-                    filter: i !== 1 ? "blur(1.5px)" : "blur(0px)",
-                  }}
-                  exit={{ opacity: 0, scale: 0.8, filter: "blur(4px)" }}
-                  transition={{ 
-                    type: "tween", 
-                    ease: "circOut",
-                    duration: 0.4,
-                    opacity: { duration: 0.2 },
-                  }}
-                  onClick={() => {
-                    if (i === 1) {
-                      setIsExpanded(!isExpanded);
-                    } else if (i === 0) {
-                      handleScroll(-1);
-                    } else {
-                      handleScroll(1);
-                    }
-                  }}
-                  className={`absolute w-full glass-card p-4 flex flex-col gap-4 text-left group overflow-hidden ${
-                    i === 1 && isExpanded ? 'h-auto z-50 ring-1 ring-cyan/30' : 'h-[100px] z-20'
-                  } ${i === 1 ? 'shadow-2xl' : 'opacity-40'}`}
+          {announcementsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="glass-card p-4 rounded-xl border border-white/5 animate-pulse"
                 >
-                  <div className="flex items-center gap-4 w-full">
-                    <div
-                      className={`p-2.5 rounded-xl bg-secondary ${a.color} group-hover:scale-110 transition-transform shrink-0 relative`}
-                    >
-                      <a.icon className="w-5 h-5" />
-                      {a.pinned && (
-                        <Pin className="absolute -top-1 -right-1 w-3 h-3 text-cyan fill-cyan" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 pr-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-bold text-foreground truncate">
-                          {a.title}
-                        </h4>
-                        <div className="flex items-center gap-1">
-                          <span
-                            className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase tracking-tighter ${
-                              a.authorRole === "Assistant"
-                                ? "bg-cyan/10 text-cyan border border-cyan/20"
-                                : "bg-magenta/10 text-magenta border border-magenta/20"
-                            }`}
-                          >
-                            {a.authorRole}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <span className="font-medium text-foreground/70">
-                          {a.authorName}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" /> {a.time}
-                        </span>
-                      </div>
-                    </div>
-                    {i === 1 && (
-                      <ChevronRight
-                        className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                      />
-                    )}
-                  </div>
-
-                  {i === 1 && isExpanded && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4 pt-2 border-t border-white/5"
-                    >
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {a.fullContent || a.desc}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsExpanded(false);
-                          }}
-                          className="flex-1 py-2 rounded-lg bg-cyan text-black text-[10px] font-bold shadow-lg shadow-cyan/10 active:opacity-90"
-                        >
-                          Acknowledge
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push("/home/announcements");
-                          }}
-                          className="px-4 py-2 rounded-lg bg-secondary text-foreground text-[10px] font-medium hover:bg-secondary/70 border border-white/5"
-                        >
-                          View All
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </motion.button>
+                  <div className="h-4 bg-white/5 rounded w-1/3 mb-2" />
+                  <div className="h-3 bg-white/5 rounded w-2/3" />
+                </div>
               ))}
-            </AnimatePresence>
-          </div>
+            </div>
+          ) : announcements.length === 0 ? (
+            <div className="glass-card p-8 text-center space-y-2">
+              <Megaphone className="w-8 h-8 text-muted-foreground/20 mx-auto" />
+              <p className="text-sm text-muted-foreground">
+                No announcements yet
+              </p>
+            </div>
+          ) : (
+            <div
+              ref={scrollRef}
+              className="h-[280px] relative overflow-hidden flex flex-col items-center w-full cursor-ns-resize touch-none"
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
+                {getVisibleAnnouncements().map(
+                  (a: AnnouncementItem, i: number) => {
+                    const isSingle = announcements.length === 1;
+                    const isDouble = announcements.length === 2;
+                    const visualIndex = isSingle ? 1 : isDouble ? (i === 0 ? 1 : 0) : i;
+                    const isFocused = visualIndex === 1;
+
+                    return (
+                    <motion.div
+                      key={a.id}
+                      layout="position"
+                      drag="y"
+                      dragConstraints={{ top: 0, bottom: 0 }}
+                      dragElastic={0.1}
+                      onDragEnd={(_, info) => {
+                        if (info.offset.y < -50) handleScroll(1);
+                        if (info.offset.y > 50) handleScroll(-1);
+                      }}
+                      initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                      animate={{
+                        opacity: isFocused ? 1 : 0.4,
+                        y: visualIndex === 0 ? 0 : visualIndex === 1 ? 80 : 160,
+                        scale: isFocused ? 1 : 0.85,
+                        zIndex: isFocused ? 30 : visualIndex === 0 ? 20 : 10,
+                        filter: !isFocused ? "blur(1.5px)" : "blur(0px)",
+                      }}
+                      exit={{
+                        opacity: 0,
+                        scale: 0.8,
+                        filter: "blur(4px)",
+                      }}
+                      transition={{
+                        type: "tween",
+                        ease: "circOut",
+                        duration: 0.4,
+                        opacity: { duration: 0.2 },
+                      }}
+                      onClick={() => {
+                        if (isFocused) {
+                          setIsExpanded(!isExpanded);
+                        } else if (visualIndex === 0) {
+                          handleScroll(-1);
+                        } else {
+                          handleScroll(1);
+                        }
+                      }}
+                      className={`absolute w-full glass-card p-4 flex flex-col gap-4 text-left group overflow-hidden cursor-pointer ${
+                        isFocused && isExpanded
+                          ? "h-auto z-50 ring-1 ring-cyan/30"
+                          : "h-[100px] z-20"
+                      } ${isFocused ? "shadow-2xl" : "opacity-40"}`}
+                    >
+                      <div className="flex items-center gap-4 w-full">
+                        <div
+                          className={`p-2.5 rounded-xl bg-secondary ${
+                            a.priority === "high" || a.priority === "urgent"
+                              ? "text-amber-400"
+                              : "text-cyan"
+                          } group-hover:scale-110 transition-transform shrink-0 relative`}
+                        >
+                          {a.priority === "high" ||
+                          a.priority === "urgent" ? (
+                            <AlertTriangle className="w-5 h-5" />
+                          ) : (
+                            <Megaphone className="w-5 h-5" />
+                          )}
+                          {a.pinned && (
+                            <Pin className="absolute -top-1 -right-1 w-3 h-3 text-cyan fill-cyan" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 pr-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-sm font-bold text-foreground truncate">
+                              {a.title}
+                            </h4>
+                            <div className="flex items-center gap-1">
+                              {a.is_read && (
+                                <span className="text-[7px] px-1 py-0.5 rounded bg-cyan/10 text-cyan border border-cyan/20 font-bold uppercase">
+                                  <Check className="w-2 h-2 inline" />
+                                </span>
+                              )}
+                              {a.edited_at && (
+                                <span className="text-[7px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                                  <Pencil className="w-2 h-2 inline" />
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span className="font-medium text-foreground/70">
+                              {a.author?.display_name || "Admin"}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" />{" "}
+                              {formatDistanceToNow(new Date(a.created_at), {
+                                addSuffix: true,
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                        {isFocused && (
+                          <ChevronRight
+                            className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                          />
+                        )}
+                      </div>
+
+                      {isFocused && isExpanded && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="space-y-4 pt-2 border-t border-white/5"
+                        >
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {a.body}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!a.is_read) {
+                                  markRead(a.id);
+                                  toast.success("Marked as read");
+                                }
+                                setIsExpanded(false);
+                              }}
+                              className="flex-1 py-2 rounded-lg bg-cyan text-black text-[10px] font-bold shadow-lg shadow-cyan/10 active:opacity-90 cursor-pointer"
+                            >
+                              {a.is_read ? "Dismiss" : "Acknowledge"}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push("/home/announcements");
+                              }}
+                              className="px-4 py-2 rounded-lg bg-secondary text-foreground text-[10px] font-medium hover:bg-secondary/70 border border-white/5 cursor-pointer"
+                            >
+                              View All
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          )}
         </motion.div>
 
         {/* Circadian + Pomodoro + Dev Status row */}

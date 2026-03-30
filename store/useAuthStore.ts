@@ -127,6 +127,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        const { token } = get();
+        // Fire-and-forget backend logout to revoke tokens server-side
+        if (token) {
+          fetch("/api/auth/logout", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => {});
+        }
         set({
           user: null,
           token: null,

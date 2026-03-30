@@ -26,6 +26,7 @@ import {
   Users,
   ScrollText,
   MessageCircle,
+  Megaphone,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { usePathname } from "next/navigation";
@@ -64,6 +65,7 @@ const adminSystemItems = [
   { title: "Network & Ports", url: "/network", icon: Shield },
   { title: "Home Devices", url: "/devices", icon: House },
   { title: "Energy Management", url: "/energy", icon: Zap },
+  { title: "Announcements", url: "/announcements", icon: Megaphone },
   { title: "Terminal", url: "/terminal", icon: Terminal },
   { title: "Server Logs", url: "/logs", icon: ScrollText },
 ];
@@ -77,6 +79,7 @@ const adminConfigItems = [
 // Family member navigation (perm = required permission, undefined = always visible)
 const memberItems = [
   { title: "Home", url: "/home", icon: Home, perm: undefined },
+  { title: "Updates", url: "/home/announcements", icon: Megaphone, perm: undefined },
   { title: "Jarvis Chat", url: "/chat", icon: MessageCircle, perm: undefined },
   {
     title: "Smart Home",

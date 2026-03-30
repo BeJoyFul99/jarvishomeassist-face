@@ -1,4 +1,6 @@
 services:
   web:
     build: .
+    env_file:
+      - .env.production
     image: joynerlee/jarvishomeassist_face:latest
