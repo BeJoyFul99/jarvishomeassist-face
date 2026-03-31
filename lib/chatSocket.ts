@@ -4,6 +4,9 @@
  * Opens a SINGLE WS connection to the Go backend and lets multiple
  * subscribers listen to chat events (messages, typing, AI streaming).
  *
+ * Auth tokens are in HttpOnly cookies — the browser attaches them
+ * automatically to the /api/chat/authorize request.
+ *
  * Handles React StrictMode double-mount by debouncing connect/disconnect.
  */
 
@@ -35,12 +38,11 @@ function deriveWsUrl(): string {
 }
 
 const WS_URL = deriveWsUrl();
-console.log(WS_URL);
 
 class ChatSocketClient {
   private listeners = new Set<ChatWSListener>();
   private ws: WebSocket | null = null;
-  private token: string | null = null;
+  private active = false; // true when user is authenticated
   private connected = false;
   private connecting = false;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -48,11 +50,11 @@ class ChatSocketClient {
   private disconnectDebounce: ReturnType<typeof setTimeout> | null = null;
   private retryCount = 0;
 
-  /** Set or update the JWT token. Reconnects if changed. */
-  setToken(token: string | null) {
-    if (this.token === token) return;
-    this.token = token;
-    if (!token) {
+  /** Signal whether the user is authenticated. Reconnects on change. */
+  setAuthenticated(authenticated: boolean) {
+    if (this.active === authenticated) return;
+    this.active = authenticated;
+    if (!authenticated) {
       this.disconnect();
     } else if (this.listeners.size > 0 && !this.connected && !this.connecting) {
       this.debouncedConnect();
@@ -68,7 +70,7 @@ class ChatSocketClient {
       this.disconnectDebounce = null;
     }
 
-    if (!this.connected && !this.connecting && this.token) {
+    if (!this.connected && !this.connecting && this.active) {
       this.debouncedConnect();
     }
 
@@ -111,7 +113,7 @@ class ChatSocketClient {
       this.connectDebounce = null;
       if (
         this.listeners.size > 0 &&
-        this.token &&
+        this.active &&
         !this.connected &&
         !this.connecting
       ) {
@@ -121,18 +123,19 @@ class ChatSocketClient {
   }
 
   private disconnect() {
-    this.connected = !1;
-    this.connecting = !1;
+    this.connected = false;
+    this.connecting = false;
     this.retryCount = 0;
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    this.retryTimeout &&
-      (clearTimeout(this.retryTimeout), (this.retryTimeout = null));
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    this.connectDebounce &&
-      (clearTimeout(this.connectDebounce), (this.connectDebounce = null));
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+    if (this.connectDebounce) {
+      clearTimeout(this.connectDebounce);
+      this.connectDebounce = null;
+    }
 
     if (this.ws) {
-      // Only call close if the socket is not already closing or closed
       if (this.ws.readyState < 2) {
         this.ws.close();
       }
@@ -141,20 +144,16 @@ class ChatSocketClient {
   }
 
   private connect() {
-    if (this.connecting || this.connected || !this.token) return;
+    if (this.connecting || this.connected || !this.active) return;
     this.connecting = true;
 
-    // Request a short-lived single-use ticket using the JWT in Authorization header
-    fetch("api/chat/authorize", {
+    // Request a short-lived single-use ticket — cookies carry the JWT automatically
+    fetch("/api/chat/authorize", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     })
       .then(async (res) => {
         if (!res.ok) {
-          // Authorization failed — drop token and notify listeners
           this.disconnect();
           return;
         }
@@ -193,7 +192,7 @@ class ChatSocketClient {
           this.connected = false;
           this.connecting = false;
           this.ws = null;
-          if (this.listeners.size > 0 && this.token) {
+          if (this.listeners.size > 0 && this.active) {
             this.scheduleReconnect();
           }
         };
@@ -203,40 +202,6 @@ class ChatSocketClient {
       .catch(() => {
         this.disconnect();
       });
-    if (this.ws) {
-      this.ws.onopen = () => {
-        this.connected = true;
-        this.connecting = false;
-        this.retryCount = 0;
-        this.notify({ type: "ws:connected", data: null });
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          // The server may batch messages separated by newlines
-          const parts = (event.data as string).split("\n").filter(Boolean);
-          for (const part of parts) {
-            const msg: ChatWSMessage = JSON.parse(part);
-            this.notify(msg);
-          }
-        } catch {
-          // ignore parse errors
-        }
-      };
-
-      this.ws.onclose = () => {
-        this.connected = false;
-        this.connecting = false;
-        this.ws = null;
-        if (this.listeners.size > 0 && this.token) {
-          this.scheduleReconnect();
-        }
-      };
-
-      this.ws.onerror = () => {
-        // onclose will fire after onerror, handling reconnection
-      };
-    }
   }
 
   private scheduleReconnect() {
@@ -246,7 +211,7 @@ class ChatSocketClient {
     this.retryCount++;
     this.retryTimeout = setTimeout(() => {
       this.retryTimeout = null;
-      if (this.listeners.size > 0 && this.token) {
+      if (this.listeners.size > 0 && this.active) {
         this.connect();
       }
     }, delay);

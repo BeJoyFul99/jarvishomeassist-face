@@ -1,11 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Save, RotateCcw, Server } from "lucide-react";
 import { toast } from "sonner";
-import { useAuthStore } from "@/store/useAuthStore";
 import { SettingsForm } from "@/components/SettingsForm";
 import { SERVER_SETTINGS, buildDefaults } from "@/lib/settingsSchema";
 
@@ -21,20 +20,13 @@ const item = {
 const DEFAULTS = buildDefaults(SERVER_SETTINGS);
 
 export default function SettingsPage() {
-  const token = useAuthStore((s) => s.token);
   const [values, setValues] = useState<Record<string, string>>(DEFAULTS);
   const [saving, setSaving] = useState(false);
-
-  const authHeaders = useCallback(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/settings", { headers: authHeaders() });
+        const res = await fetch("/api/settings");
         if (res.ok) {
           const data = await res.json();
           setValues((prev) => ({ ...prev, ...data }));
@@ -44,14 +36,14 @@ export default function SettingsPage() {
       }
     };
     load();
-  }, [authHeaders]);
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const res = await fetch("/api/admin/settings", {
         method: "PUT",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
       if (!res.ok) throw new Error("Failed to save settings");
@@ -69,7 +61,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch("/api/admin/settings", {
         method: "PUT",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(DEFAULTS),
       });
       if (!res.ok) throw new Error("Failed to reset settings");

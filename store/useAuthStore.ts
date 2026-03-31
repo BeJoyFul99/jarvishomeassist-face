@@ -9,23 +9,10 @@ export interface AuthUser {
   role: UserRole;
   resourcePerms: string[];
   permExpiresAt: string | null;
-} 
-
-interface JwtPayload {
-  sub?: string;
-  name?: string;
-  email?: string;
-  role?: string;
-  resource_perms?: string[];
-  perm_expires_at?: string | null;
-  exp?: number;
-  [key: string]: unknown;
 }
 
 interface AuthState {
   user: AuthUser | null;
-  token: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   /** Administrator previewing the family_member UI */
   viewingAsFamily: boolean;
@@ -38,23 +25,11 @@ interface AuthState {
   /** Check if current user has a specific resource permission */
   hasPermission: (perm: string) => boolean;
 
-  login: (token: string, refreshToken?: string) => void;
+  login: (user: AuthUser) => void;
   logout: () => void;
   setViewingAsFamily: (v: boolean) => void;
-  /** Attempt to refresh the JWT using the stored refresh token */
+  /** Attempt to refresh the session using the HttpOnly refresh cookie */
   refresh: () => Promise<boolean>;
-}
-
-function decodeJwt(token: string): JwtPayload | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = parts[1];
-    const decoded = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(decoded) as JwtPayload;
-  } catch {
-    return null;
-  }
 }
 
 function mapRole(raw: string | undefined): UserRole {
@@ -73,12 +48,21 @@ function mapRole(raw: string | undefined): UserRole {
   return "family_member";
 }
 
+/** Map the backend user response to our AuthUser shape. */
+function toAuthUser(backendUser: Record<string, unknown>): AuthUser {
+  return {
+    display_name: (backendUser.display_name as string) || "User",
+    email: (backendUser.email as string) || "",
+    role: mapRole(backendUser.role as string | undefined),
+    resourcePerms: (backendUser.resource_perms as string[]) || [],
+    permExpiresAt: (backendUser.perm_expires_at as string | null) || null,
+  };
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
-      refreshToken: null,
       isAuthenticated: false,
       viewingAsFamily: false,
       _hasHydrated: false,
@@ -105,67 +89,36 @@ export const useAuthStore = create<AuthState>()(
         return user.resourcePerms.includes(perm);
       },
 
-      login: (token: string, refreshToken?: string) => {
-        const payload = decodeJwt(token);
-        if (!payload) return;
-
-        const user: AuthUser = {
-          display_name: payload.name || payload.sub || "User",
-          email: payload.email || "",
-          role: mapRole(payload.role),
-          resourcePerms: payload.resource_perms || [],
-          permExpiresAt: payload.perm_expires_at || null,
-        };
-
+      login: (user: AuthUser) => {
         set({
           user,
-          token,
-          refreshToken: refreshToken ?? get().refreshToken,
           isAuthenticated: true,
           viewingAsFamily: false,
         });
       },
 
       logout: () => {
-        const { token } = get();
-        // Fire-and-forget backend logout to revoke tokens server-side
-        if (token) {
-          fetch("/api/auth/logout", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-          }).catch(() => {});
-        }
+        // Fire-and-forget backend logout (clears HttpOnly cookies + DB tokens)
+        fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
         set({
           user: null,
-          token: null,
-          refreshToken: null,
           isAuthenticated: false,
           viewingAsFamily: false,
         });
       },
 
       refresh: async () => {
-        const { token, refreshToken } = get();
-        if (!refreshToken) return false;
-
         try {
-          const res = await fetch("/api/auth/refresh", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ refresh_token: refreshToken }),
-          });
+          // Cookies are sent automatically — no need to pass tokens
+          const res = await fetch("/api/auth/refresh", { method: "POST" });
 
           if (!res.ok) {
-            // Refresh token is invalid/revoked — force logout
             get().logout();
             return false;
           }
 
           const data = await res.json();
-          get().login(data.token, data.refresh_token);
+          set({ user: toAuthUser(data.user) });
           return true;
         } catch {
           return false;
@@ -180,8 +133,6 @@ export const useAuthStore = create<AuthState>()(
       name: "jarvis-auth",
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
         viewingAsFamily: state.viewingAsFamily,
       }),
@@ -191,3 +142,5 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+export { toAuthUser, mapRole };

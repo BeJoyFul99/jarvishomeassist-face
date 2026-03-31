@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Zap, Loader2 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
 
 interface EnergyReading {
   id: number;
@@ -24,7 +23,6 @@ const getHeatColor = (value: number) => {
 };
 
 const EnergyHeatmap = () => {
-  const token = useAuthStore((s) => s.token);
   const [heatData, setHeatData] = useState<number[]>(Array(24).fill(0));
   const [loading, setLoading] = useState(true);
 
@@ -32,7 +30,7 @@ const EnergyHeatmap = () => {
     const fetchToday = async () => {
       try {
         const res = await fetch("/api/energy/today", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         if (!res.ok) return;
         const readings: EnergyReading[] = await res.json();
@@ -49,7 +47,7 @@ const EnergyHeatmap = () => {
       }
     };
     fetchToday();
-  }, [token]);
+  }, []);
 
   const totalWh = Math.round(heatData.reduce((a, b) => a + b, 0));
 

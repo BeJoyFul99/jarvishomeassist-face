@@ -1,13 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Save, RotateCcw, BellRing } from "lucide-react";
 import { toast } from "sonner";
-import { useAuthStore } from "@/store/useAuthStore";
 import { subscribeToPush, unsubscribeFromPush, isPushSubscribed } from "@/lib/pushManager";
 import { SettingsForm } from "@/components/SettingsForm";
 import { USER_PREFERENCES, buildDefaults } from "@/lib/settingsSchema";
@@ -29,7 +28,6 @@ const item = {
 const DEFAULTS = buildDefaults(USER_PREFERENCES);
 
 export default function PreferencesPage() {
-  const token = useAuthStore((s) => s.token);
   const [values, setValues] = useState<Record<string, string>>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -44,7 +42,6 @@ export default function PreferencesPage() {
   }, []);
 
   const handlePushToggle = async (enabled: boolean) => {
-    if (!token) return;
     setPushLoading(true);
     try {
       if (enabled) {
@@ -57,12 +54,12 @@ export default function PreferencesPage() {
             return;
           }
         }
-        const ok = await subscribeToPush(token);
+        const ok = await subscribeToPush();
         setPushEnabled(ok);
         if (ok) toast.success("Push notifications enabled");
         else toast.error("Failed to enable push notifications");
       } else {
-        await unsubscribeFromPush(token);
+        await unsubscribeFromPush();
         setPushEnabled(false);
         toast.success("Push notifications disabled");
       }
@@ -72,16 +69,10 @@ export default function PreferencesPage() {
     setPushLoading(false);
   };
 
-  const authHeaders = useCallback(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
-
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/preferences", { headers: authHeaders() });
+        const res = await fetch("/api/preferences");
         if (res.ok) {
           const data = await res.json();
           // Backend stores values as mixed types; normalize to strings
@@ -96,14 +87,14 @@ export default function PreferencesPage() {
       }
     };
     load();
-  }, [authHeaders]);
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const res = await fetch("/api/preferences", {
         method: "PUT",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
       if (!res.ok) throw new Error("Failed to save preferences");
@@ -123,7 +114,7 @@ export default function PreferencesPage() {
     try {
       const res = await fetch("/api/preferences", {
         method: "PUT",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(DEFAULTS),
       });
       if (!res.ok) throw new Error("Failed to reset preferences");

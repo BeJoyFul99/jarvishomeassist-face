@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useAuthStore } from "@/store/useAuthStore";
 import { formatDistanceToNow, format } from "date-fns";
 
 // ── Types ────────────────────────────────────────────────
@@ -92,12 +91,6 @@ interface AnnouncementItem {
 
 // ── Helpers ──────────────────────────────────────────────
 
-function authHeaders(token: string | null) {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
-}
-
 const priorityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
   normal: "bg-cyan/10 text-cyan border-cyan/20",
@@ -115,7 +108,6 @@ const categoryLabels: Record<string, string> = {
 // ── Component ────────────────────────────────────────────
 
 export default function AdminAnnouncementsPage() {
-  const token = useAuthStore((s) => s.token);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -143,7 +135,7 @@ export default function AdminAnnouncementsPage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/announcements?page=${page}&per_page=20`, {
-        headers: authHeaders(token),
+        headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
       if (res.ok) {
@@ -155,7 +147,7 @@ export default function AdminAnnouncementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page]);
+  }, [page]);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -164,7 +156,7 @@ export default function AdminAnnouncementsPage() {
   const fetchReadReceipts = async (announcementId: number) => {
     try {
       const res = await fetch(`/api/admin/announcements/${announcementId}/reads`, {
-        headers: authHeaders(token),
+        headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
       if (res.ok) {
@@ -219,7 +211,7 @@ export default function AdminAnnouncementsPage() {
 
       const res = await fetch(url, {
         method,
-        headers: authHeaders(token),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
 
@@ -243,7 +235,7 @@ export default function AdminAnnouncementsPage() {
     try {
       const res = await fetch(`/api/admin/announcements/${deleteTarget.id}`, {
         method: "DELETE",
-        headers: authHeaders(token),
+        headers: { "Content-Type": "application/json" },
       });
       if (res.ok) {
         toast.success("Announcement deleted");
@@ -262,7 +254,7 @@ export default function AdminAnnouncementsPage() {
     try {
       const res = await fetch(`/api/admin/announcements/${a.id}`, {
         method: "PATCH",
-        headers: authHeaders(token),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pinned: !a.pinned }),
       });
       if (res.ok) {

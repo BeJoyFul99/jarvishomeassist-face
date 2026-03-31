@@ -30,7 +30,6 @@ import {
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { useAuthStore } from "@/store/useAuthStore";
 
 const container = {
   hidden: { opacity: 0 },
@@ -101,7 +100,6 @@ interface SmartDevice {
 }
 
 const HomeDevicesPage = () => {
-  const token = useAuthStore((s) => s.token);
   const [devices, setDevices] = useState<SmartDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -122,10 +120,8 @@ const HomeDevicesPage = () => {
   }, []);
 
   const authHeaders = useCallback(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
+    return { "Content-Type": "application/json" };
+  }, []);
 
   useEffect(() => {
     const fetchDevices = async () => {

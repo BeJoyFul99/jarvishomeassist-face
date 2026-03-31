@@ -42,7 +42,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
   useUserEvents();
   useAuthInterceptor();
 
-  const { isAuthenticated, _hasHydrated, token } = useAuthStore();
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
 
   // Fetch persisted notifications on mount
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);

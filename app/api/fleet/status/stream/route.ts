@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
+import { COOKIE_AT } from "@/lib/cookies";
 
 const BACKEND_URL = process.env.GO_BACKEND_URL || "http://localhost:5000";
 
 // GET /api/fleet/status/stream → streams SSE from Go backend GET /api/v1/status/stream
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader) {
+  const accessToken = request.cookies.get(COOKIE_AT)?.value;
+  if (!accessToken) {
     return new Response(JSON.stringify({ error: "missing_token" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(`${BACKEND_URL}/api/v1/status/stream`, {
       headers: {
-        Authorization: authHeader,
+        Authorization: `Bearer ${accessToken}`,
         Accept: "text/event-stream",
       },
       signal: controller.signal,

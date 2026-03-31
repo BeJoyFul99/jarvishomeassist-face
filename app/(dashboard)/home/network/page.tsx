@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wifi,
@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useFleet } from "@/hooks/useFleet";
-import { useAuthStore } from "@/store/useAuthStore";
 
 const container = {
   hidden: { opacity: 0 },
@@ -63,14 +62,11 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
   const [showQr, setShowQr] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
-  const token = useAuthStore((s) => s.token);
   const [credentials, setCredentials] = useState<{ password: string } | null>(null);
 
-  const fetchCredentials = useCallback(async () => {
+  const fetchCredentials = async () => {
     try {
-      const res = await fetch(`/api/wifi/${network.id}/credentials`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`/api/wifi/${network.id}/credentials`);
       if (res.ok) {
         const data = await res.json();
         setCredentials(data);
@@ -78,7 +74,7 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
     } catch {
       // use the password from list if credentials fetch fails
     }
-  }, [network.id, token]);
+  };
 
   // Fetch full credentials when QR or show password is first requested
   useEffect(() => {
@@ -200,7 +196,6 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
 
 const HomeNetworkPage = () => {
   const { aggregated } = useFleet();
-  const token = useAuthStore((s) => s.token);
   const isOnline = aggregated.onlineNodes > 0;
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,9 +203,7 @@ const HomeNetworkPage = () => {
   useEffect(() => {
     const fetchNetworks = async () => {
       try {
-        const res = await fetch("/api/wifi", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        const res = await fetch("/api/wifi");
         if (res.ok) {
           const data: WifiNetwork[] = await res.json();
           setNetworks(data.filter((n) => n.enabled));
@@ -222,7 +215,7 @@ const HomeNetworkPage = () => {
       }
     };
     fetchNetworks();
-  }, [token]);
+  }, []);
 
   return (
     <motion.div

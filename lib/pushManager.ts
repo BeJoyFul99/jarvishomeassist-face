@@ -15,11 +15,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 /** Fetch the VAPID public key from the backend. */
-async function getVAPIDKey(token: string): Promise<string | null> {
+async function getVAPIDKey(): Promise<string | null> {
   try {
-    const res = await fetch("/api/push/vapid-key", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch("/api/push/vapid-key");
     if (!res.ok) return null;
     const data = await res.json();
     return data.public_key || null;
@@ -29,14 +27,14 @@ async function getVAPIDKey(token: string): Promise<string | null> {
 }
 
 /** Register the service worker and subscribe to Web Push. */
-export async function subscribeToPush(token: string): Promise<boolean> {
+export async function subscribeToPush(): Promise<boolean> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     console.warn("[push] Push notifications not supported");
     return false;
   }
 
   try {
-    const vapidKey = await getVAPIDKey(token);
+    const vapidKey = await getVAPIDKey();
     if (!vapidKey) {
       console.warn("[push] VAPID key not available — push not configured on server");
       return false;
@@ -56,7 +54,6 @@ export async function subscribeToPush(token: string): Promise<boolean> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         endpoint: json.endpoint,
@@ -73,7 +70,7 @@ export async function subscribeToPush(token: string): Promise<boolean> {
 }
 
 /** Unsubscribe from Web Push and remove the subscription from the backend. */
-export async function unsubscribeFromPush(token: string): Promise<boolean> {
+export async function unsubscribeFromPush(): Promise<boolean> {
   if (!("serviceWorker" in navigator)) return false;
 
   try {
@@ -89,7 +86,6 @@ export async function unsubscribeFromPush(token: string): Promise<boolean> {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ endpoint: subscription.endpoint }),
     });

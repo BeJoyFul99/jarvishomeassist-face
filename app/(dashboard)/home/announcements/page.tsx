@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -46,10 +45,8 @@ interface AnnouncementItem {
 
 // ── Helpers ──────────────────────────────────────────────
 
-function authHeaders(token: string | null) {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
+function authHeaders() {
+  return { "Content-Type": "application/json" };
 }
 
 const priorityColors: Record<string, string> = {
@@ -101,7 +98,6 @@ const TABS = ["all", "general", "maintenance", "security", "event"];
 
 export default function AnnouncementsPage() {
   const router = useRouter();
-  const token = useAuthStore((s) => s.token);
   const { scrollY } = useScroll();
 
   // Adaptive Style Transforms
@@ -158,7 +154,7 @@ export default function AnnouncementsPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/announcements?per_page=100", {
-        headers: authHeaders(token),
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (res.ok) {
@@ -169,7 +165,7 @@ export default function AnnouncementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -182,7 +178,7 @@ export default function AnnouncementsPage() {
       try {
         await fetch(`/api/announcements/${id}/read`, {
           method: "POST",
-          headers: authHeaders(token),
+          headers: authHeaders(),
         });
         setAnnouncements((prev) =>
           prev.map((a) => (a.id === id ? { ...a, is_read: true } : a)),
@@ -191,7 +187,7 @@ export default function AnnouncementsPage() {
         // silent fail
       }
     },
-    [token],
+    [],
   );
 
   const handleSelect = (a: AnnouncementItem) => {

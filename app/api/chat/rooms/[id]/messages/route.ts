@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { proxyToBackend } from "@/lib/apiProxy";
+import { COOKIE_AT } from "@/lib/cookies";
 
 const BACKEND_URL = process.env.GO_BACKEND_URL || "http://localhost:5000";
 
@@ -28,9 +29,9 @@ export async function POST(
 
   // If multipart, forward the raw body as-is to the Go backend
   if (contentType.includes("multipart/form-data")) {
-    const authHeader = request.headers.get("Authorization");
     const headers: Record<string, string> = {};
-    if (authHeader) headers["Authorization"] = authHeader;
+    const accessToken = request.cookies.get(COOKIE_AT)?.value;
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
     // Forward content-type with boundary
     headers["Content-Type"] = contentType;
 

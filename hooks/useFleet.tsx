@@ -27,7 +27,6 @@ export function useFleet() {
 
   const activeNode = useActiveNode();
   const aggregated = useAggregatedStats();
-  const token = useAuthStore((s) => s.token);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // Refs to avoid re-triggering the effect when callbacks change
@@ -39,15 +38,15 @@ export function useFleet() {
   setApiErrorRef.current = setApiError;
 
   useEffect(() => {
-    if (!isAuthenticated || !token) {
+    if (!isAuthenticated) {
       // No auth — fall back to polling the public snapshot endpoint
       const interval = setInterval(() => refresh(), 5000);
       refresh();
       return () => clearInterval(interval);
     }
 
-    // Update SSE client token and subscribe to status events
-    sseClient.setToken(token);
+    // Signal auth state to SSE client (cookies carry the JWT)
+    sseClient.setAuthenticated(true);
 
     const handler = (msg: SSEMessage) => {
       if (msg.type !== "status:update") return;
@@ -69,7 +68,7 @@ export function useFleet() {
     return () => {
       unsubscribe();
     };
-  }, [isAuthenticated, token, refresh]);
+  }, [isAuthenticated, refresh]);
 
   return {
     nodes,

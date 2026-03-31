@@ -15,7 +15,6 @@ import {
   Loader2,
   BarChart3,
 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
 import {
   AreaChart,
   Area,
@@ -88,7 +87,6 @@ interface ErrorRow {
 }
 
 export default function InferencePage() {
-  const token = useAuthStore((s) => s.token);
   const [today, setToday] = useState<TodayData | null>(null);
   const [daily, setDaily] = useState<DayRow[]>([]);
   const [models, setModels] = useState<ModelRow[]>([]);
@@ -96,30 +94,20 @@ export default function InferencePage() {
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(7);
 
-  const headers = useCallback((): Record<string, string> => {
-    const h: Record<string, string> = {};
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
-
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const [todayRes, summaryRes, modelRes, errorRes] = await Promise.all([
         fetch("/api/admin/ai-usage?endpoint=today", {
-          headers: headers(),
           cache: "no-store",
         }),
         fetch(`/api/admin/ai-usage?endpoint=summary&days=${days}`, {
-          headers: headers(),
           cache: "no-store",
         }),
         fetch(`/api/admin/ai-usage?endpoint=by-model&days=${days}`, {
-          headers: headers(),
           cache: "no-store",
         }),
         fetch("/api/admin/ai-usage?endpoint=errors&days=1", {
-          headers: headers(),
           cache: "no-store",
         }),
       ]);
@@ -187,7 +175,7 @@ export default function InferencePage() {
     } finally {
       setLoading(false);
     }
-  }, [headers, days]);
+  }, [days]);
 
   useEffect(() => {
     fetchAll();

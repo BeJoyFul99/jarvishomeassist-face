@@ -56,7 +56,6 @@ const fadeSlideUp = {
 // ── Main Page ────────────────────────────────────────────────
 
 export default function ChatPage() {
-  const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const {
     rooms,
@@ -116,10 +115,8 @@ export default function ChatPage() {
   const deleteMessage = useChatStore((s) => s.deleteMessage);
 
   const authHeaders = useCallback(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
+    return { "Content-Type": "application/json" };
+  }, []);
 
   const selectedIsOwn = selectedMsg
     ? selectedMsg.sender_id !== null && selectedMsg.sender?.email === user?.email
@@ -142,7 +139,7 @@ export default function ChatPage() {
     try {
       const res = await fetch(`/api/chat/rooms/${roomId}/messages/${msgId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: newContent }),
       });
       if (res.ok) {
@@ -155,7 +152,7 @@ export default function ChatPage() {
       toast.error("Failed to edit message");
     }
     setEditingMsgId(null);
-  }, [token, editMessage]);
+  }, [editMessage]);
 
   const handleDeleteMsg = useCallback(async () => {
     if (!selectedMsg) return;
@@ -164,7 +161,6 @@ export default function ChatPage() {
     try {
       const res = await fetch(`/api/chat/rooms/${room_id}/messages/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         deleteMessage(room_id, id);
@@ -174,7 +170,7 @@ export default function ChatPage() {
     } catch {
       toast.error("Failed to delete message");
     }
-  }, [selectedMsg, token, deleteMessage]);
+  }, [selectedMsg, deleteMessage]);
 
   const activeRoom = useMemo(() => {
     return rooms.find((r) => r.id === activeRoomId);
@@ -467,7 +463,6 @@ export default function ChatPage() {
           formData.append("reply_to_id", currentReplyTo.id.toString());
         res = await fetch(`/api/chat/rooms/${activeRoomId}/messages`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
           body: formData,
         });
       } else {

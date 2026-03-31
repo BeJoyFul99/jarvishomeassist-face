@@ -3,6 +3,8 @@
  * Opens a SINGLE connection to /api/events and lets multiple subscribers
  * listen to different event types through the same stream.
  *
+ * Auth tokens are in HttpOnly cookies — the browser attaches them automatically.
+ *
  * Handles React StrictMode double-mount by debouncing connect/disconnect.
  */
 
@@ -20,15 +22,15 @@ class SSEClient {
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private connectDebounce: ReturnType<typeof setTimeout> | null = null;
   private disconnectDebounce: ReturnType<typeof setTimeout> | null = null;
-  private token: string | null = null;
+  private active = false; // true when user is authenticated
   private connected = false;
   private connecting = false;
 
-  /** Set or update the JWT token. Reconnects only if actually changed. */
-  setToken(token: string | null) {
-    if (this.token === token) return;
-    this.token = token;
-    if (!token) {
+  /** Signal whether the user is authenticated. Reconnects on change. */
+  setAuthenticated(authenticated: boolean) {
+    if (this.active === authenticated) return;
+    this.active = authenticated;
+    if (!authenticated) {
       this.disconnect();
     } else if (this.listeners.size > 0 && !this.connected && !this.connecting) {
       this.debouncedConnect();
@@ -46,7 +48,7 @@ class SSEClient {
     }
 
     // Start connection if not already connected
-    if (!this.connected && !this.connecting && this.token) {
+    if (!this.connected && !this.connecting && this.active) {
       this.debouncedConnect();
     }
 
@@ -79,7 +81,7 @@ class SSEClient {
     if (this.connectDebounce) return; // already scheduled
     this.connectDebounce = setTimeout(() => {
       this.connectDebounce = null;
-      if (this.listeners.size > 0 && this.token && !this.connected && !this.connecting) {
+      if (this.listeners.size > 0 && this.active && !this.connected && !this.connecting) {
         this.connect();
       }
     }, 50);
@@ -103,17 +105,15 @@ class SSEClient {
   }
 
   private async connect() {
-    if (this.connecting || this.connected || !this.token) return;
+    if (this.connecting || this.connected || !this.active) return;
     this.connecting = true;
 
     this.controller = new AbortController();
 
     try {
+      // Cookies carry the JWT automatically — no manual Authorization header
       const res = await fetch("/api/events", {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-          Accept: "text/event-stream",
-        },
+        headers: { Accept: "text/event-stream" },
         signal: this.controller.signal,
       });
 
@@ -162,7 +162,7 @@ class SSEClient {
       // Connection failed or aborted
       this.connected = false;
       this.connecting = false;
-      if (this.listeners.size > 0 && this.token) {
+      if (this.listeners.size > 0 && this.active) {
         this.scheduleReconnect(5000);
       }
     }
@@ -172,7 +172,7 @@ class SSEClient {
     if (this.retryTimeout) clearTimeout(this.retryTimeout);
     this.retryTimeout = setTimeout(() => {
       this.retryTimeout = null;
-      if (this.listeners.size > 0 && this.token) {
+      if (this.listeners.size > 0 && this.active) {
         this.connect();
       }
     }, ms);

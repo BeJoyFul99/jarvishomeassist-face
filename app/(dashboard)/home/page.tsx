@@ -55,10 +55,8 @@ interface AnnouncementItem {
   is_read?: boolean;
 }
 
-function authHeaders(token: string | null) {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
+function authHeaders() {
+  return { "Content-Type": "application/json" };
 }
 
 const container = {
@@ -92,7 +90,7 @@ const QUICK_LINKS = [
 ];
 
 const HomePage = () => {
-  const { user, token } = useAuthStore();
+  const { user } = useAuthStore();
   const { aggregated } = useFleet();
   const router = useRouter();
   const [visibleIndex, setVisibleIndex] = useState(0);
@@ -109,7 +107,7 @@ const HomePage = () => {
     setAnnouncementsLoading(true);
     try {
       const res = await fetch("/api/announcements?per_page=10", {
-        headers: authHeaders(token),
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (res.ok && data.announcements?.length > 0) {
@@ -120,7 +118,7 @@ const HomePage = () => {
     } finally {
       setAnnouncementsLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -133,7 +131,7 @@ const HomePage = () => {
       try {
         await fetch(`/api/announcements/${id}/read`, {
           method: "POST",
-          headers: authHeaders(token),
+          headers: authHeaders(),
         });
         setAnnouncements((prev) =>
           prev.map((a) => (a.id === id ? { ...a, is_read: true } : a)),
@@ -142,7 +140,7 @@ const HomePage = () => {
         // silent fail
       }
     },
-    [token],
+    [],
   );
 
   // Handle manual scroll with non-passive listener to prevent page scroll

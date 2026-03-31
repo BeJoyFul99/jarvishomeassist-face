@@ -151,10 +151,8 @@ const categoryIcons: Record<string, typeof Eye> = {
 
 // ── Helpers ──────────────────────────────────────────────
 
-function authHeaders(token: string | null) {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
+function authHeaders() {
+  return { "Content-Type": "application/json" };
 }
 
 function roleBadge(role: string) {
@@ -397,7 +395,7 @@ function GuestStatsSummary({ users }: { users: UserItem[] }) {
 // ── Main Page ────────────────────────────────────────────
 
 const UserManagementPage = () => {
-  const { token, user: authUser } = useAuthStore();
+  const { user: authUser } = useAuthStore();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canView = hasPermission("user:view");
   const canCreate = hasPermission("user:create_guest");
@@ -474,7 +472,7 @@ const UserManagementPage = () => {
   const fetchSchema = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/permissions/schema", {
-        headers: authHeaders(token),
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (res.ok) {
@@ -483,12 +481,12 @@ const UserManagementPage = () => {
     } catch {
       // schema fetch failure is non-fatal
     }
-  }, [token]);
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/users", {
-        headers: authHeaders(token),
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (res.ok) {
@@ -502,14 +500,14 @@ const UserManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // Fetch audit logs for a specific user
   const fetchAuditLogs = useCallback(async (targetId: number) => {
     setAuditLoading(true);
     try {
       const res = await fetch(`/api/admin/audit-logs?target_id=${targetId}&limit=20`, {
-        headers: authHeaders(token),
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (res.ok) {
@@ -520,7 +518,7 @@ const UserManagementPage = () => {
     } finally {
       setAuditLoading(false);
     }
-  }, [token]);
+  }, []);
 
   // Load audit logs when expanding a user
   useEffect(() => {
@@ -561,7 +559,7 @@ const UserManagementPage = () => {
     try {
       const res = await fetch("/api/admin/users", {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(),
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -613,7 +611,7 @@ const UserManagementPage = () => {
     try {
       const res = await fetch(`/api/admin/users/${editUser.id}`, {
         method: "PATCH",
-        headers: authHeaders(token),
+        headers: authHeaders(),
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -641,7 +639,7 @@ const UserManagementPage = () => {
         try {
           const res = await fetch(`/api/admin/users/${user.id}`, {
             method: "DELETE",
-            headers: authHeaders(token),
+            headers: authHeaders(),
           });
           const data = await res.json();
           if (res.ok) {
@@ -666,7 +664,7 @@ const UserManagementPage = () => {
         try {
           const res = await fetch(`/api/admin/users/${user.id}/restore`, {
             method: "POST",
-            headers: authHeaders(token),
+            headers: authHeaders(),
             body: JSON.stringify({}),
           });
           const data = await res.json();
@@ -687,7 +685,7 @@ const UserManagementPage = () => {
     try {
       const res = await fetch(`/api/admin/users/${user.id}/lock`, {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(),
         body: JSON.stringify({ is_locked: !user.is_locked }),
       });
       const data = await res.json();
@@ -712,7 +710,7 @@ const UserManagementPage = () => {
         try {
           const res = await fetch(`/api/admin/users/${user.id}/revoke`, {
             method: "POST",
-            headers: authHeaders(token),
+            headers: authHeaders(),
             body: JSON.stringify({}),
           });
           const data = await res.json();
@@ -737,7 +735,7 @@ const UserManagementPage = () => {
         try {
           const res = await fetch(`/api/admin/users/${user.id}/reset-password`, {
             method: "POST",
-            headers: authHeaders(token),
+            headers: authHeaders(),
             body: JSON.stringify({}),
           });
           const data = await res.json();
@@ -762,7 +760,7 @@ const UserManagementPage = () => {
         try {
           const res = await fetch(`/api/admin/users/${user.id}/regenerate-pin`, {
             method: "POST",
-            headers: authHeaders(token),
+            headers: authHeaders(),
             body: JSON.stringify({}),
           });
           const data = await res.json();

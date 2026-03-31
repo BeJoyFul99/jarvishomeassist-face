@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { COOKIE_AT } from "@/lib/cookies";
 
 const BACKEND_URL = process.env.GO_BACKEND_URL || "http://localhost:5000";
-console.log("API Proxy BACKEND_URL:", BACKEND_URL);
+
 /**
- * Proxy a request to the Go backend, forwarding the Authorization header.
+ * Proxy a request to the Go backend, reading the JWT from the HttpOnly cookie.
  */
 export async function proxyToBackend(
   request: NextRequest,
@@ -14,10 +15,10 @@ export async function proxyToBackend(
     "Content-Type": "application/json",
   };
 
-  // Forward the Authorization header from the client
-  const authHeader = request.headers.get("Authorization");
-  if (authHeader) {
-    headers["Authorization"] = authHeader;
+  // Read JWT from HttpOnly cookie (invisible to client-side JS)
+  const accessToken = request.cookies.get(COOKIE_AT)?.value;
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
   const fetchOpts: RequestInit = {

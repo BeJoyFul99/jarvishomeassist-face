@@ -14,7 +14,6 @@ import {
   X,
   ArrowDown,
 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -73,8 +72,6 @@ const formatDate = (ts: string) => {
 };
 
 export default function LogsPage() {
-  const token = useAuthStore((s) => s.token);
-
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -95,10 +92,8 @@ export default function LogsPage() {
   const [autoScroll, setAutoScroll] = useState(true);
 
   const authHeaders = useCallback(() => {
-    const h: Record<string, string> = {};
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
+    return {};
+  }, []);
 
   // ── Paginated fetch ──────────────────────────────────────
 

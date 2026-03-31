@@ -177,21 +177,12 @@ const WifiEditCard = ({
 
 export default function NetworkPage() {
   const { status } = useSystemStatus();
-  const token = useAuthStore((s) => s.token);
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const headers = useCallback(
-    () => ({
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    }),
-    [token],
-  );
-
   const fetchNetworks = useCallback(async () => {
     try {
-      const res = await fetch("/api/wifi", { headers: headers() });
+      const res = await fetch("/api/wifi");
       if (res.ok) {
         const data = await res.json();
         setNetworks(data);
@@ -201,7 +192,7 @@ export default function NetworkPage() {
     } finally {
       setLoading(false);
     }
-  }, [headers]);
+  }, []);
 
   useEffect(() => {
     fetchNetworks();
@@ -211,7 +202,7 @@ export default function NetworkPage() {
     try {
       const res = await fetch(`/api/admin/wifi/${id}`, {
         method: "PATCH",
-        headers: headers(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ssid, password }),
       });
       if (res.ok) {
@@ -232,7 +223,6 @@ export default function NetworkPage() {
     try {
       const res = await fetch(`/api/admin/wifi/${id}/toggle`, {
         method: "POST",
-        headers: headers(),
       });
       if (res.ok) {
         const updated = await res.json();

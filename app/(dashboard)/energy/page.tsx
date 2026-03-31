@@ -20,7 +20,6 @@ import {
   Flame,
   Snowflake,
 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -116,8 +115,6 @@ const formatCurrency = (amount: number, currency: string) => {
 };
 
 export default function EnergyManagementPage() {
-  const token = useAuthStore((s) => s.token);
-
   // Data
   const [rates, setRates] = useState<EnergyRate[]>([]);
   const [budget, setBudget] = useState<EnergyBudget | null>(null);
@@ -165,10 +162,8 @@ export default function EnergyManagementPage() {
   const [readingSaving, setReadingSaving] = useState(false);
 
   const authHeaders = useCallback(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
+    return { "Content-Type": "application/json" };
+  }, []);
 
   const fetchAll = useCallback(async () => {
     try {

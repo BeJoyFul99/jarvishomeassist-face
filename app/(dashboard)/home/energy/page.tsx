@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Zap,
@@ -14,7 +14,6 @@ import {
   Loader2,
   Target,
 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
 
 const container = {
   hidden: { opacity: 0 },
@@ -75,7 +74,6 @@ const formatCurrency = (amount: number, currency: string) => {
 };
 
 export default function EnergyPage() {
-  const token = useAuthStore((s) => s.token);
   const [todayReadings, setTodayReadings] = useState<EnergyReading[]>([]);
   const [daySummary, setDaySummary] = useState<EnergySummary | null>(null);
   const [weekSummary, setWeekSummary] = useState<EnergySummary | null>(null);
@@ -84,21 +82,15 @@ export default function EnergyPage() {
   const [loading, setLoading] = useState(true);
   const [activePeriod, setActivePeriod] = useState<"day" | "week" | "month">("day");
 
-  const authHeaders = useCallback(() => {
-    const h: Record<string, string> = {};
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
-
   useEffect(() => {
     const fetchAll = async () => {
       try {
         const [todayRes, dayRes, weekRes, monthRes, ratesRes] = await Promise.all([
-          fetch("/api/energy/today", { headers: authHeaders() }),
-          fetch("/api/energy/summary?period=day", { headers: authHeaders() }),
-          fetch("/api/energy/summary?period=week", { headers: authHeaders() }),
-          fetch("/api/energy/summary?period=month", { headers: authHeaders() }),
-          fetch("/api/energy/rates", { headers: authHeaders() }),
+          fetch("/api/energy/today"),
+          fetch("/api/energy/summary?period=day"),
+          fetch("/api/energy/summary?period=week"),
+          fetch("/api/energy/summary?period=month"),
+          fetch("/api/energy/rates"),
         ]);
 
         if (todayRes.ok) setTodayReadings(await todayRes.json());
@@ -113,7 +105,7 @@ export default function EnergyPage() {
       }
     };
     fetchAll();
-  }, [authHeaders]);
+  }, []);
 
   const activeSummary =
     activePeriod === "day" ? daySummary : activePeriod === "week" ? weekSummary : monthSummary;

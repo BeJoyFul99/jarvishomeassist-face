@@ -33,7 +33,7 @@ type RefreshCallback = () => void;
  * - Calls onRefresh when the user list should be refreshed
  */
 export function useUserEvents(onRefresh?: RefreshCallback) {
-  const { token, user, logout, isAuthenticated } = useAuthStore();
+  const { user, logout, isAuthenticated } = useAuthStore();
   const router = useRouter();
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
@@ -48,10 +48,10 @@ export function useUserEvents(onRefresh?: RefreshCallback) {
   );
 
   useEffect(() => {
-    if (!isAuthenticated || !token || !user) return;
+    if (!isAuthenticated || !user) return;
 
-    // Update SSE client token
-    sseClient.setToken(token);
+    // Signal auth state to SSE client (cookies carry the JWT)
+    sseClient.setAuthenticated(true);
 
     const handler = (event: SSEMessage) => {
       // Skip non-user events
@@ -91,5 +91,5 @@ export function useUserEvents(onRefresh?: RefreshCallback) {
     return () => {
       unsubscribe();
     };
-  }, [isAuthenticated, token, user, handleForceLogout]);
+  }, [isAuthenticated, user, handleForceLogout]);
 }

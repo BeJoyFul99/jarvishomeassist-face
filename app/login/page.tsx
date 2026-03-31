@@ -12,7 +12,7 @@ import {
   Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore, toAuthUser } from "@/store/useAuthStore";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -61,13 +61,12 @@ const LoginPage = () => {
         return;
       }
 
-      // data.token is a real JWT from the Go backend
-      login(data.token, data.refresh_token);
+      // Tokens are in HttpOnly cookies — we only receive user info
+      const authUser = toAuthUser(data.user);
+      login(authUser);
 
-      // Role is now in the Zustand store — redirect accordingly
-      const decoded = useAuthStore.getState().user;
       router.push(
-        decoded?.role === "administrator" ? "/dashboard" : "/home",
+        authUser.role === "administrator" ? "/dashboard" : "/home",
       );
     } catch {
       setError("Unable to reach the server. Please try again.");
@@ -103,9 +102,9 @@ const LoginPage = () => {
         return;
       }
 
-      login(data.token, data.refresh_token);
-      const decoded = useAuthStore.getState().user;
-      router.push(decoded?.role === "administrator" ? "/dashboard" : "/home");
+      const authUser = toAuthUser(data.user);
+      login(authUser);
+      router.push(authUser.role === "administrator" ? "/dashboard" : "/home");
     } catch {
       setError("Unable to reach the server. Please try again.");
     } finally {

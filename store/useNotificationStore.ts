@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { useAuthStore } from "@/store/useAuthStore";
 
 export interface AppNotification {
   id: string | number;
@@ -61,13 +60,6 @@ interface ServerNotification {
 }
 
 let localCounter = 0;
-
-function authHeaders(): Record<string, string> {
-  const token = useAuthStore.getState().token;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return headers;
-}
 
 function mapServerNotif(n: ServerNotification): AppNotification {
   return {
@@ -131,7 +123,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (typeof id === "number") {
       fetch(`/api/notifications/${id}/read`, {
         method: "PATCH",
-        headers: authHeaders(),
+        credentials: "include",
       }).catch(() => {});
     }
   },
@@ -142,7 +134,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     fetch("/api/notifications/read-all", {
       method: "POST",
-      headers: authHeaders(),
+      credentials: "include",
     }).catch(() => {});
   },
 
@@ -151,7 +143,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     fetch("/api/notifications", {
       method: "DELETE",
-      headers: authHeaders(),
+      credentials: "include",
     }).catch(() => {});
   },
 
@@ -165,7 +157,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (typeof id === "number") {
       fetch(`/api/notifications/${id}`, {
         method: "DELETE",
-        headers: authHeaders(),
+        credentials: "include",
       }).catch(() => {});
     }
   },
@@ -173,9 +165,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   fetchNotifications: async () => {
     set({ loading: true });
     try {
-      const res = await fetch("/api/notifications?per_page=50", {
-        headers: authHeaders(),
-      });
+      const res = await fetch("/api/notifications?per_page=50");
       if (!res.ok) return;
       const data = await res.json();
       const serverNotifs: AppNotification[] = (data.notifications || []).map(mapServerNotif);
@@ -195,9 +185,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   fetchUnreadCount: async () => {
     try {
-      const res = await fetch("/api/notifications/unread-count", {
-        headers: authHeaders(),
-      });
+      const res = await fetch("/api/notifications/unread-count");
       if (!res.ok) return;
       const data = await res.json();
       // Add local unread count to server count
@@ -212,7 +200,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     try {
       const res = await fetch("/api/notifications", {
         method: "POST",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: data.title,
           message: data.message,

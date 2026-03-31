@@ -8,7 +8,6 @@ import {
   Signal, Router, Settings as SettingsIcon, Plus, Trash2, Pencil, X, Check,
   ToggleLeft, ToggleRight, Search, Loader2, RefreshCw,
 } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -93,7 +92,6 @@ const INITIAL_NETWORK_DEVICES: NetworkDevice[] = [
 ];
 
 export default function DevicesPage() {
-  const token = useAuthStore((s) => s.token);
   const [devices, setDevices] = useState<SmartDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [networkDevices, setNetworkDevices] = useState(INITIAL_NETWORK_DEVICES);
@@ -135,10 +133,8 @@ export default function DevicesPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number | string; kind: "smart" | "network" } | null>(null);
 
   const authHeaders = useCallback(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
-  }, [token]);
+    return { "Content-Type": "application/json" };
+  }, []);
 
   // Fetch devices from API
   const fetchDevices = useCallback(async () => {

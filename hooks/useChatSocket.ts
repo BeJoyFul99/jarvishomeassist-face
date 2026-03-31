@@ -12,7 +12,7 @@ import { toast } from "@/hooks/useToast";
  * typing indicators and marking messages as seen.
  */
 export function useChatSocket() {
-  const token = useAuthStore((s) => s.token);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const currentUser = useAuthStore((s) => s.user);
   const activeRoomId = useChatStore((s) => s.activeRoomId);
   const addMessage = useChatStore((s) => s.addMessage);
@@ -30,10 +30,10 @@ export function useChatSocket() {
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
-  // Connect/disconnect WS based on token
+  // Connect/disconnect WS based on auth state
   useEffect(() => {
-    chatSocket.setToken(token);
-  }, [token]);
+    chatSocket.setAuthenticated(isAuthenticated);
+  }, [isAuthenticated]);
 
   // Subscribe to WS events
   useEffect(() => {

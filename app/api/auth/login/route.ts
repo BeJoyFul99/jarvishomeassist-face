@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { setAuthCookies } from "@/lib/cookies";
 
 export async function POST(request: NextRequest) {
   const backendUrl = process.env.GO_BACKEND_URL || "http://localhost:5000";
@@ -14,7 +15,18 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+
+    if (!res.ok) {
+      return NextResponse.json(data, { status: res.status });
+    }
+
+    // Set tokens as HttpOnly cookies, return only user info to browser
+    const response = NextResponse.json(
+      { user: data.user },
+      { status: res.status },
+    );
+    setAuthCookies(response, data.token, data.refresh_token);
+    return response;
   } catch (error) {
     console.error("Auth proxy error:", error);
     return NextResponse.json(
