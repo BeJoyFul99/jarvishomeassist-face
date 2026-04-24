@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useBudgets, usePace } from "@/lib/bills";
+import { BudgetPaceSkeleton } from "@/components/utilities/Skeletons";
 
 interface Props {
   propertyId: number;
@@ -62,8 +63,8 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
       ? "from-[#ffd60a] to-[#f59e0b]"
       : "from-[#ff453a] to-[#ff6961]";
 
-  // While pace loads, render nothing to avoid layout jitter
-  if (paceLoading) return null;
+  // While pace loads, render a skeleton to avoid layout jitter
+  if (paceLoading) return <BudgetPaceSkeleton />;
 
   // Compact empty state: no baseline, no budget, no projection to show
   if (baseline === "unknown" && budgetAmount === 0 && projected === 0) {

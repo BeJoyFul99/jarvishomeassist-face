@@ -45,6 +45,11 @@ import {
 import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hooks/useToast";
 import { MarkPaidDialog } from "@/components/utilities/MarkPaidDialog";
+import {
+  HeroSkeleton,
+  UtilityCardsSkeleton,
+  MetersSkeleton,
+} from "@/components/utilities/Skeletons";
 
 // ── Palette & metadata ────────────────────────────────────────────────────────
 
@@ -196,14 +201,11 @@ export default function BillDetailPage(props: {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white px-8 py-8">
+      <div className="min-h-screen bg-black text-white px-8 py-8 space-y-6">
         <BackLink />
-        <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 mt-6">
-          <div className="flex items-center gap-3 text-neutral-400">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Loading bill&hellip;
-          </div>
-        </Card>
+        <HeroSkeleton />
+        <UtilityCardsSkeleton />
+        <MetersSkeleton />
       </div>
     );
   }
@@ -294,6 +296,11 @@ export default function BillDetailPage(props: {
             reextracting={reextract.isPending}
           />
         </motion.div>
+      )}
+
+      {/* Skeleton utility cards while extraction is still running */}
+      {bill.extraction_status === "processing" && line_items.length === 0 && (
+        <UtilityCardsSkeleton />
       )}
 
       {/* Tier 2 — Utility Cards */}

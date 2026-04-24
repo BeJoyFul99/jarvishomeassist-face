@@ -12,6 +12,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
+// Note: Loader2 is still used by ExtractionBadge below
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -48,6 +49,8 @@ import { AddPropertyDialog } from "@/components/utilities/AddPropertyDialog";
 import { ManualBillDialog } from "@/components/utilities/ManualBillDialog";
 import { BudgetPaceCard } from "@/components/utilities/BudgetPaceCard";
 import { SetBudgetDialog } from "@/components/utilities/SetBudgetDialog";
+import { BillTableSkeleton } from "@/components/utilities/Skeletons";
+import { GhostBillPreview } from "@/components/utilities/GhostBillPreview";
 
 export default function UtilitiesPage() {
   const reduced = useReducedMotion();
@@ -196,15 +199,15 @@ export default function UtilitiesPage() {
       )}
 
       {/* ── Loading state ── */}
-      {isLoading && <LoadingCard />}
+      {isLoading && <BillTableSkeleton />}
 
       {/* ── Empty: no properties ── */}
       {!isLoading && properties && properties.length === 0 && (
-        <EmptyProperties />
+        <EmptyProperties isAdmin={isAdmin} onAdd={() => setAddPropertyOpen(true)} />
       )}
 
       {/* ── Empty: no bills for this property ── */}
-      {noBills && <EmptyBills isAdmin={isAdmin} />}
+      {noBills && <EmptyBills isAdmin={isAdmin} onUpload={() => setUploadOpen(true)} />}
 
       {/* ── Bills table ── */}
       {hasBills && (
@@ -389,39 +392,68 @@ function ExtractionBadge({ status }: { status: ExtractionStatus }) {
   );
 }
 
-function LoadingCard() {
+function EmptyProperties({ isAdmin, onAdd }: { isAdmin: boolean; onAdd: () => void }) {
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6">
-      <div className="flex items-center gap-3 text-neutral-400">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        Loading…
+    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-8 md:p-10 overflow-hidden">
+      <div className="grid gap-8 md:grid-cols-[1fr,1.3fr] md:items-center">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 bg-white/5 border border-white/10 text-xs text-neutral-300">
+            <Receipt className="h-3.5 w-3.5" />
+            Getting started
+          </div>
+          <h2 className="text-2xl font-extrabold tracking-tight">Track your utility bills</h2>
+          <p className="text-sm text-neutral-400 max-w-md leading-relaxed">
+            Add a property to start uploading PowerStream PDFs. Bills are extracted
+            automatically — you&apos;ll see the breakdown by utility, budget pace, and
+            payment status.
+          </p>
+          {isAdmin && (
+            <div className="pt-1">
+              <Button
+                onClick={onAdd}
+                className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add your first property
+              </Button>
+            </div>
+          )}
+        </div>
+        <GhostBillPreview />
       </div>
     </Card>
   );
 }
 
-function EmptyProperties() {
+function EmptyBills({ isAdmin, onUpload }: { isAdmin: boolean; onUpload: () => void }) {
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-8 text-center">
-      <Receipt className="mx-auto h-10 w-10 text-neutral-500" aria-hidden />
-      <h3 className="mt-3 text-lg font-semibold">No properties yet</h3>
-      <p className="mt-1 text-sm text-neutral-400">
-        Add a property in Settings to start tracking utility bills.
-      </p>
-    </Card>
-  );
-}
-
-function EmptyBills({ isAdmin }: { isAdmin: boolean }) {
-  return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-8 text-center">
-      <Receipt className="mx-auto h-10 w-10 text-neutral-500" aria-hidden />
-      <h3 className="mt-3 text-lg font-semibold">No bills for this property</h3>
-      <p className="mt-1 text-sm text-neutral-400">
-        {isAdmin
-          ? "Upload a PowerStream PDF to extract the details automatically."
-          : "Ask an admin to upload a bill."}
-      </p>
+    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-8 md:p-10 overflow-hidden">
+      <div className="grid gap-8 md:grid-cols-[1fr,1.3fr] md:items-center">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 bg-white/5 border border-white/10 text-xs text-neutral-300">
+            <Receipt className="h-3.5 w-3.5" />
+            No bills yet
+          </div>
+          <h2 className="text-2xl font-extrabold tracking-tight">Upload your first PowerStream bill</h2>
+          <p className="text-sm text-neutral-400 max-w-md leading-relaxed">
+            Drag a PDF into the upload dialog. Our parser extracts the total, breakdown by utility,
+            meter readings, and due date. You can review and correct anything before it lands in your history.
+          </p>
+          {isAdmin ? (
+            <div className="pt-1 flex gap-2 flex-wrap">
+              <Button
+                onClick={onUpload}
+                className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+              >
+                <Plus className="h-4 w-4 mr-2" /> Upload bill
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-500">Ask an admin to upload a bill to get started.</p>
+          )}
+        </div>
+        <GhostBillPreview />
+      </div>
     </Card>
   );
 }
