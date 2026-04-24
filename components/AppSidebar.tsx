@@ -27,6 +27,7 @@ import {
   ScrollText,
   MessageCircle,
   Megaphone,
+  Receipt,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { usePathname } from "next/navigation";
@@ -65,6 +66,7 @@ const adminSystemItems = [
   { title: "Network & Ports", url: "/network", icon: Shield },
   { title: "Home Devices", url: "/devices", icon: House },
   { title: "Energy Management", url: "/energy", icon: Zap },
+  { title: "Utilities", url: "/utilities", icon: Receipt },
   { title: "Announcements", url: "/announcements", icon: Megaphone },
   { title: "Terminal", url: "/terminal", icon: Terminal },
   { title: "Server Logs", url: "/logs", icon: ScrollText },
@@ -88,6 +90,7 @@ const memberItems = [
     perm: "smart_device:view",
   },
   { title: "Energy", url: "/home/energy", icon: Zap, perm: undefined },
+  { title: "Utilities", url: "/home/utilities", icon: Receipt, perm: undefined },
   { title: "Network", url: "/home/network", icon: Wifi, perm: "network:view" },
   {
     title: "Media & Files",
