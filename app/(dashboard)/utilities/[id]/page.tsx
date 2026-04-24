@@ -15,6 +15,7 @@ import {
   Clock,
   Download,
   RefreshCw,
+  Pencil,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,8 @@ import {
 import {
   useBill,
   useReextract,
+  useUpdateBill,
+  useUpdateLineItem,
   billPdfUrl,
   type UtilityBill,
   type UtilityBillLineItem,
@@ -40,6 +43,8 @@ import {
   type PaymentStatus,
 } from "@/lib/bills";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useToast } from "@/hooks/useToast";
+import { MarkPaidDialog } from "@/components/utilities/MarkPaidDialog";
 
 // ── Palette & metadata ────────────────────────────────────────────────────────
 
@@ -99,6 +104,28 @@ function computeUtilityTotals(
   return out;
 }
 
+// ── Editable amount input ─────────────────────────────────────────────────────
+
+function EditableAmount({
+  value,
+  onChange,
+  className,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  className?: string;
+}) {
+  return (
+    <input
+      type="number"
+      step="0.01"
+      value={value}
+      onChange={(e) => onChange(Number.parseFloat(e.target.value) || 0)}
+      className={`bg-transparent border-b border-white/20 focus:border-white/60 focus:outline-none w-32 tabular-nums ${className ?? ""}`}
+    />
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BillDetailPage(props: {
@@ -111,10 +138,53 @@ export default function BillDetailPage(props: {
   const isAdmin = effectiveRole === "administrator";
   const [filter, setFilter] = useState<UtilityType | null>(null);
 
+  // Edit mode state
+  const [editing, setEditing] = useState(false);
+  const [billEdits, setBillEdits] = useState<Partial<UtilityBill>>({});
+  const [lineEdits, setLineEdits] = useState<Record<number, Partial<UtilityBillLineItem>>>({});
+
+  // Mark paid dialog state
+  const [markPaidOpen, setMarkPaidOpen] = useState(false);
+
   const { data, isLoading, error } = useBill(
     Number.isFinite(id) ? id : null,
   );
   const reextract = useReextract();
+  const updateBill = useUpdateBill();
+  const updateLineItem = useUpdateLineItem();
+  const { toast } = useToast();
+
+  const saving = updateBill.isPending || updateLineItem.isPending;
+
+  function cancelEdit() {
+    setEditing(false);
+    setBillEdits({});
+    setLineEdits({});
+  }
+
+  async function saveAll(billId: number) {
+    try {
+      const promises: Promise<unknown>[] = [];
+      if (Object.keys(billEdits).length > 0) {
+        promises.push(updateBill.mutateAsync({ id: billId, patch: billEdits }));
+      }
+      for (const [lineId, patch] of Object.entries(lineEdits)) {
+        if (Object.keys(patch).length === 0) continue;
+        promises.push(updateLineItem.mutateAsync({ billId, lineId: Number(lineId), patch }));
+      }
+      await Promise.all(promises);
+      setEditing(false);
+      setBillEdits({});
+      setLineEdits({});
+      toast({ title: "Saved", description: "Bill corrections applied." });
+    } catch (e) {
+      toast({
+        title: "Save failed",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  }
 
   const fade = reduced
     ? {}
@@ -156,9 +226,39 @@ export default function BillDetailPage(props: {
   const totals = computeUtilityTotals(line_items);
   const lateFees = bill.late_fees || 0;
 
+  // Effective bill values (merge edits over live data)
+  const effectiveTotalAmount = billEdits.total_amount ?? bill.total_amount;
+  const effectiveLateFees = billEdits.late_fees ?? lateFees;
+
   return (
-    <div className="min-h-screen bg-black text-white px-8 py-8 space-y-6">
+    <div className="min-h-screen bg-black text-white px-8 py-8 space-y-6 pb-24">
       <BackLink />
+
+      {/* Admin action buttons */}
+      {isAdmin && bill.extraction_status !== "processing" && (
+        <div className="flex items-center gap-2 justify-end">
+          {bill.payment_status !== "paid" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setMarkPaidOpen(true)}
+              className="rounded-lg border-white/20 bg-white/5 hover:bg-white/10"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Mark paid
+            </Button>
+          )}
+          {!editing ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditing(true)}
+              className="rounded-lg border-white/20 bg-white/5 hover:bg-white/10"
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+            </Button>
+          ) : null}
+        </div>
+      )}
 
       {/* Tier 1 — Hero */}
       <motion.section
@@ -166,7 +266,15 @@ export default function BillDetailPage(props: {
         className="grid gap-6 lg:grid-cols-[2fr,3fr]"
         aria-label="Bill summary"
       >
-        <HeroLeft bill={bill} reduced={!!reduced} />
+        <HeroLeft
+          bill={bill}
+          reduced={!!reduced}
+          editing={editing}
+          effectiveTotalAmount={effectiveTotalAmount}
+          effectiveLateFees={effectiveLateFees}
+          onTotalAmountChange={(n) => setBillEdits((prev) => ({ ...prev, total_amount: n }))}
+          onLateFeesChange={(n) => setBillEdits((prev) => ({ ...prev, late_fees: n }))}
+        />
         <HeroRight
           bill={bill}
           totals={totals}
@@ -203,6 +311,9 @@ export default function BillDetailPage(props: {
             totalAmount={bill.total_amount}
             dim={filter !== null && filter !== u}
             currency={bill.currency}
+            editing={editing}
+            lineEdits={lineEdits}
+            setLineEdits={setLineEdits}
           />
         ))}
       </motion.section>
@@ -213,6 +324,38 @@ export default function BillDetailPage(props: {
           <MetersTable meters={meters} />
         </motion.section>
       )}
+
+      {/* Sticky Save / Cancel bar */}
+      {editing && (
+        <motion.div
+          initial={reduced ? undefined : { y: 60 }}
+          animate={reduced ? undefined : { y: 0 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+        >
+          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-neutral-950/90 backdrop-blur px-4 py-2 shadow-2xl">
+            <span className="text-xs text-neutral-400 mr-2">Editing</span>
+            <Button variant="ghost" size="sm" onClick={cancelEdit}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => saveAll(bill.id)}
+              disabled={saving}
+              className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Mark paid dialog */}
+      <MarkPaidDialog
+        open={markPaidOpen}
+        onOpenChange={setMarkPaidOpen}
+        billId={bill.id}
+        totalAmount={bill.total_amount}
+      />
     </div>
   );
 }
@@ -236,9 +379,19 @@ function BackLink() {
 function HeroLeft({
   bill,
   reduced,
+  editing,
+  effectiveTotalAmount,
+  effectiveLateFees,
+  onTotalAmountChange,
+  onLateFeesChange,
 }: {
   bill: UtilityBill;
   reduced: boolean;
+  editing: boolean;
+  effectiveTotalAmount: number;
+  effectiveLateFees: number;
+  onTotalAmountChange: (n: number) => void;
+  onLateFeesChange: (n: number) => void;
 }) {
   const due = bill.due_date ? new Date(bill.due_date) : null;
   const today = new Date();
@@ -250,12 +403,22 @@ function HeroLeft({
         <div className="text-[10px] uppercase tracking-widest text-neutral-500">
           Bill total
         </div>
-        <div
-          className="mt-2 text-[56px] leading-none font-extrabold tabular-nums"
-          aria-label={`Total: ${money(bill.total_amount, bill.currency)}`}
-        >
-          {money(bill.total_amount, bill.currency)}
-        </div>
+        {editing ? (
+          <div className="mt-2">
+            <EditableAmount
+              value={effectiveTotalAmount}
+              onChange={onTotalAmountChange}
+              className="text-[40px] leading-none font-extrabold"
+            />
+          </div>
+        ) : (
+          <div
+            className="mt-2 text-[56px] leading-none font-extrabold tabular-nums"
+            aria-label={`Total: ${money(bill.total_amount, bill.currency)}`}
+          >
+            {money(bill.total_amount, bill.currency)}
+          </div>
+        )}
         {bill.billing_period_start && bill.billing_period_end && (
           <div className="mt-3 text-sm text-neutral-400">
             {new Date(bill.billing_period_start).toLocaleDateString(undefined, {
@@ -277,8 +440,19 @@ function HeroLeft({
         {due && daysToDue !== null && bill.payment_status !== "paid" && (
           <DueChip days={daysToDue} />
         )}
-        {bill.late_fees > 0 && (
-          <LateFeeChip amount={bill.late_fees} reduced={reduced} />
+        {(bill.late_fees > 0 || editing) && (
+          editing ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-400">Late fee</span>
+              <EditableAmount
+                value={effectiveLateFees}
+                onChange={onLateFeesChange}
+                className="text-sm"
+              />
+            </div>
+          ) : (
+            <LateFeeChip amount={bill.late_fees} reduced={reduced} />
+          )
         )}
       </div>
     </Card>
@@ -459,6 +633,9 @@ function UtilityCard({
   totalAmount,
   dim,
   currency,
+  editing,
+  lineEdits,
+  setLineEdits,
 }: {
   utility: UtilityType;
   items: UtilityBillLineItem[];
@@ -466,6 +643,9 @@ function UtilityCard({
   totalAmount: number;
   dim: boolean;
   currency: string;
+  editing: boolean;
+  lineEdits: Record<number, Partial<UtilityBillLineItem>>;
+  setLineEdits: React.Dispatch<React.SetStateAction<Record<number, Partial<UtilityBillLineItem>>>>;
 }) {
   const meta = UTILITY_META[utility];
   const Icon = meta.icon;
@@ -497,33 +677,49 @@ function UtilityCard({
 
       {/* Line items */}
       <div className="p-5 space-y-2">
-        {items.map((li) => (
-          <div
-            key={li.id}
-            className="flex items-start justify-between gap-3 text-sm"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="truncate font-medium">{li.description}</div>
-              {(li.usage_amount !== null || li.rate !== null) && (
-                <div className="text-xs text-neutral-400 mt-0.5">
-                  {li.usage_amount !== null && li.usage_unit
-                    ? `${li.usage_amount.toLocaleString()} ${li.usage_unit}`
-                    : null}
-                  {li.usage_amount !== null && li.rate !== null ? " · " : ""}
-                  {li.rate !== null ? `@ $${li.rate.toFixed(5)}` : null}
+        {items.map((li) => {
+          const currentAmount = lineEdits[li.id]?.amount ?? li.amount;
+          return (
+            <div
+              key={li.id}
+              className="flex items-start justify-between gap-3 text-sm"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="truncate font-medium">{li.description}</div>
+                {(li.usage_amount !== null || li.rate !== null) && (
+                  <div className="text-xs text-neutral-400 mt-0.5">
+                    {li.usage_amount !== null && li.usage_unit
+                      ? `${li.usage_amount.toLocaleString()} ${li.usage_unit}`
+                      : null}
+                    {li.usage_amount !== null && li.rate !== null ? " · " : ""}
+                    {li.rate !== null ? `@ $${li.rate.toFixed(5)}` : null}
+                  </div>
+                )}
+              </div>
+              {editing ? (
+                <EditableAmount
+                  value={currentAmount}
+                  onChange={(n) =>
+                    setLineEdits((prev) => ({
+                      ...prev,
+                      [li.id]: { ...prev[li.id], amount: n },
+                    }))
+                  }
+                  className="text-sm"
+                />
+              ) : (
+                <div
+                  className={`tabular-nums font-medium shrink-0 ${
+                    li.amount < 0 ? "text-emerald-300" : "text-neutral-100"
+                  }`}
+                >
+                  {li.amount < 0 ? "-" : ""}
+                  {money(Math.abs(li.amount), currency)}
                 </div>
               )}
             </div>
-            <div
-              className={`tabular-nums font-medium shrink-0 ${
-                li.amount < 0 ? "text-emerald-300" : "text-neutral-100"
-              }`}
-            >
-              {li.amount < 0 ? "-" : ""}
-              {money(Math.abs(li.amount), currency)}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Share-of-total progress bar */}
