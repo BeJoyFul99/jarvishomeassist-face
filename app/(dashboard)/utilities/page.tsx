@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -40,11 +41,42 @@ import {
 } from "@/lib/bills";
 import { useUtilityPropertyStore } from "@/store/useUtilityPropertyStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useToast } from "@/hooks/useToast";
+import { useBillExtraction } from "@/hooks/useBillExtraction";
+import { UploadBillDialog } from "@/components/utilities/UploadBillDialog";
 
 export default function UtilitiesPage() {
   const reduced = useReducedMotion();
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
   const isAdmin = effectiveRole === "administrator";
+  const router = useRouter();
+  const { toast } = useToast();
+
+  // Upload dialog state
+  const [uploadOpen, setUploadOpen] = useState(false);
+  // bill being extracted while dialog is closed
+  const [backgroundBillId, setBackgroundBillId] = useState<number | null>(null);
+  const bgEv = useBillExtraction(backgroundBillId);
+
+  // Background extraction completion toast
+  useEffect(() => {
+    if (backgroundBillId === null) return;
+    if (bgEv.phase === "completed" && bgEv.billId === backgroundBillId) {
+      const id = backgroundBillId;
+      setBackgroundBillId(null);
+      toast({
+        title: bgEv.needsReview ? "Bill ready for review" : "Bill ready",
+        description: `Extraction finished. Open Utilities to view bill #${id}.`,
+      });
+    } else if (bgEv.phase === "failed" && bgEv.billId === backgroundBillId) {
+      setBackgroundBillId(null);
+      toast({
+        title: "Extraction failed",
+        description: bgEv.error ?? "Something went wrong during extraction.",
+        variant: "destructive",
+      });
+    }
+  }, [bgEv, backgroundBillId, toast, router]);
 
   const { data: properties, isLoading: propsLoading } = useProperties();
   const { currentPropertyId, setCurrentPropertyId } = useUtilityPropertyStore();
@@ -115,9 +147,12 @@ export default function UtilitiesPage() {
             </Select>
           )}
 
-          {/* Upload button — admin only; modal wired in Task B3 */}
+          {/* Upload button — admin only */}
           {isAdmin && (
-            <Button className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90">
+            <Button
+              onClick={() => setUploadOpen(true)}
+              className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+            >
               <Plus className="h-4 w-4 mr-2" aria-hidden />
               Upload Bill
             </Button>
@@ -169,6 +204,14 @@ export default function UtilitiesPage() {
           </Card>
         </motion.div>
       )}
+
+      {/* ── Upload dialog ── */}
+      <UploadBillDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        propertyId={currentPropertyId}
+        onBackgroundExtraction={(id) => setBackgroundBillId(id)}
+      />
     </div>
   );
 }
