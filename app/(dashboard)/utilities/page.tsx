@@ -46,6 +46,8 @@ import { useBillExtraction } from "@/hooks/useBillExtraction";
 import { UploadBillDialog } from "@/components/utilities/UploadBillDialog";
 import { AddPropertyDialog } from "@/components/utilities/AddPropertyDialog";
 import { ManualBillDialog } from "@/components/utilities/ManualBillDialog";
+import { BudgetPaceCard } from "@/components/utilities/BudgetPaceCard";
+import { SetBudgetDialog } from "@/components/utilities/SetBudgetDialog";
 
 export default function UtilitiesPage() {
   const reduced = useReducedMotion();
@@ -58,6 +60,7 @@ export default function UtilitiesPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [addPropertyOpen, setAddPropertyOpen] = useState(false);
   const [manualBillOpen, setManualBillOpen] = useState(false);
+  const [setBudgetOpen, setSetBudgetOpen] = useState(false);
   // bill being extracted while dialog is closed
   const [backgroundBillId, setBackgroundBillId] = useState<number | null>(null);
   const bgEv = useBillExtraction(backgroundBillId);
@@ -183,6 +186,15 @@ export default function UtilitiesPage() {
         </div>
       </motion.header>
 
+      {/* ── Budget pace card ── */}
+      {currentPropertyId !== null && (
+        <BudgetPaceCard
+          propertyId={currentPropertyId}
+          isAdmin={isAdmin}
+          onSetBudget={() => setSetBudgetOpen(true)}
+        />
+      )}
+
       {/* ── Loading state ── */}
       {isLoading && <LoadingCard />}
 
@@ -243,6 +255,11 @@ export default function UtilitiesPage() {
       <ManualBillDialog
         open={manualBillOpen}
         onOpenChange={setManualBillOpen}
+        propertyId={currentPropertyId}
+      />
+      <SetBudgetDialog
+        open={setBudgetOpen}
+        onOpenChange={setSetBudgetOpen}
         propertyId={currentPropertyId}
       />
     </div>
