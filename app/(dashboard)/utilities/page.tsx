@@ -44,6 +44,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useToast } from "@/hooks/useToast";
 import { useBillExtraction } from "@/hooks/useBillExtraction";
 import { UploadBillDialog } from "@/components/utilities/UploadBillDialog";
+import { AddPropertyDialog } from "@/components/utilities/AddPropertyDialog";
+import { ManualBillDialog } from "@/components/utilities/ManualBillDialog";
 
 export default function UtilitiesPage() {
   const reduced = useReducedMotion();
@@ -54,6 +56,8 @@ export default function UtilitiesPage() {
 
   // Upload dialog state
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [addPropertyOpen, setAddPropertyOpen] = useState(false);
+  const [manualBillOpen, setManualBillOpen] = useState(false);
   // bill being extracted while dialog is closed
   const [backgroundBillId, setBackgroundBillId] = useState<number | null>(null);
   const bgEv = useBillExtraction(backgroundBillId);
@@ -147,15 +151,34 @@ export default function UtilitiesPage() {
             </Select>
           )}
 
-          {/* Upload button — admin only */}
+          {/* Admin action cluster */}
           {isAdmin && (
-            <Button
-              onClick={() => setUploadOpen(true)}
-              className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
-            >
-              <Plus className="h-4 w-4 mr-2" aria-hidden />
-              Upload Bill
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setAddPropertyOpen(true)}
+                className="rounded-xl border-white/20 bg-white/5 hover:bg-white/10"
+              >
+                Add property
+              </Button>
+              {currentPropertyId !== null && (
+                <Button
+                  variant="outline"
+                  onClick={() => setManualBillOpen(true)}
+                  className="rounded-xl border-white/20 bg-white/5 hover:bg-white/10"
+                >
+                  Manual entry
+                </Button>
+              )}
+              <Button
+                onClick={() => setUploadOpen(true)}
+                disabled={currentPropertyId === null}
+                className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+              >
+                <Plus className="h-4 w-4 mr-2" aria-hidden />
+                Upload Bill
+              </Button>
+            </div>
           )}
         </div>
       </motion.header>
@@ -211,6 +234,16 @@ export default function UtilitiesPage() {
         onOpenChange={setUploadOpen}
         propertyId={currentPropertyId}
         onBackgroundExtraction={(id) => setBackgroundBillId(id)}
+      />
+      <AddPropertyDialog
+        open={addPropertyOpen}
+        onOpenChange={setAddPropertyOpen}
+        onCreated={(id) => setCurrentPropertyId(id)}
+      />
+      <ManualBillDialog
+        open={manualBillOpen}
+        onOpenChange={setManualBillOpen}
+        propertyId={currentPropertyId}
       />
     </div>
   );
