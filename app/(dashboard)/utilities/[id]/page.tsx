@@ -348,7 +348,7 @@ export default function BillDetailPage(props: {
               size="sm"
               onClick={() => saveAll(bill.id)}
               disabled={saving}
-              className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+              className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {saving ? "Saving…" : "Save changes"}
             </Button>

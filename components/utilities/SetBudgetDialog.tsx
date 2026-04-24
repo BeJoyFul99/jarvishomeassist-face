@@ -175,7 +175,7 @@ export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
           <Button
             disabled={upsert.isPending || budgetAmount <= 0 || !propertyId}
             onClick={submit}
-            className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+            className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {upsert.isPending ? (
               <>

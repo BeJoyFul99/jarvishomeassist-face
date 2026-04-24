@@ -163,7 +163,7 @@ export function UploadBillDialog({
                   <Button
                     onClick={doUpload}
                     disabled={!file || !propertyId}
-                    className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+                    className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     Upload
                   </Button>
@@ -192,8 +192,8 @@ export function UploadBillDialog({
                 className="py-6 flex flex-col items-center text-center gap-3"
               >
                 <div className="relative">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-black" />
+                  <div className="h-12 w-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-primary" />
                   </div>
                   {!reduced && (
                     <span className="absolute inset-0 rounded-full bg-white/20 animate-ping" />
@@ -237,7 +237,7 @@ export function UploadBillDialog({
                       onOpenChange(false);
                       router.push(`/utilities/${phase.billId}`);
                     }}
-                    className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+                    className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     View bill
                   </Button>

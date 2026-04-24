@@ -196,7 +196,7 @@ export default function UtilitiesPage() {
               <Button
                 onClick={() => setUploadOpen(true)}
                 disabled={currentPropertyId === null}
-                className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+                className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Upload Bill
@@ -550,7 +550,7 @@ function EmptyProperties({ isAdmin, onAdd }: { isAdmin: boolean; onAdd: () => vo
             <div className="pt-1">
               <Button
                 onClick={onAdd}
-                className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+                className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add your first property
@@ -582,7 +582,7 @@ function EmptyBills({ isAdmin, onUpload }: { isAdmin: boolean; onUpload: () => v
             <div className="pt-1 flex gap-2 flex-wrap">
               <Button
                 onClick={onUpload}
-                className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+                className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4 mr-2" /> Upload bill
               </Button>

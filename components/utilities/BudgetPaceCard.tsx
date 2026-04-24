@@ -28,9 +28,9 @@ const MONTH_NAMES = [
 type Baseline = "yoy" | "trailing_3mo" | "unknown";
 
 const baselineStyles: Record<Baseline, string> = {
-  yoy: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-  trailing_3mo: "bg-amber-500/10 text-amber-300 border-amber-500/20",
-  unknown: "bg-white/5 text-neutral-400 border-white/10",
+  yoy: "bg-emerald/10 text-emerald border-emerald/20",
+  trailing_3mo: "bg-amber/10 text-amber border-amber/20",
+  unknown: "bg-white/5 text-muted-foreground border-white/10",
 };
 
 const baselineLabel: Record<Baseline, string> = {
@@ -58,10 +58,10 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
   const pct = budgetAmount > 0 ? Math.min(200, (projected / budgetAmount) * 100) : 0;
   const barClass =
     pct <= threshold
-      ? "from-[#30d158] to-[#6ee7b7]"
+      ? "bg-emerald"
       : pct <= 100
-      ? "from-[#ffd60a] to-[#f59e0b]"
-      : "from-[#ff453a] to-[#ff6961]";
+      ? "bg-amber"
+      : "bg-crimson";
 
   // While pace loads, render a skeleton to avoid layout jitter
   if (paceLoading) return <BudgetPaceSkeleton />;
@@ -81,7 +81,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
             <Button
               onClick={onSetBudget}
               size="sm"
-              className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+              className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Set budget
             </Button>
@@ -114,7 +114,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
                 <Button
                   onClick={onSetBudget}
                   size="sm"
-                  className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+                  className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Set budget
                 </Button>
@@ -155,7 +155,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
           <div className="relative h-2.5 rounded-full overflow-hidden bg-white/5">
             {reduced ? (
               <div
-                className={`h-full bg-gradient-to-r ${barClass}`}
+                className={`h-full ${barClass}`}
                 style={{ width: `${Math.min(100, pct)}%` }}
                 role="progressbar"
                 aria-valuenow={pct}
@@ -168,7 +168,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(100, pct)}%` }}
                 transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                className={`h-full bg-gradient-to-r ${barClass}`}
+                className={`h-full ${barClass}`}
                 role="progressbar"
                 aria-valuenow={pct}
                 aria-valuemin={0}
@@ -183,15 +183,15 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
               aria-hidden
             />
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-neutral-400 tabular-nums">
+          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground tabular-nums">
             <span>{money(projected, currency)} projected</span>
             <span
               className={
                 pct > 100
-                  ? "text-red-300"
+                  ? "text-crimson"
                   : pct > threshold
-                  ? "text-amber-300"
-                  : "text-neutral-400"
+                  ? "text-amber"
+                  : "text-muted-foreground"
               }
             >
               {pct.toFixed(0)}% of budget
@@ -199,7 +199,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
             <span>{money(budgetAmount, currency)}</span>
           </div>
           {pct > 100 && (
-            <div className="mt-3 flex items-center gap-2 text-xs text-red-300">
+            <div className="mt-3 flex items-center gap-2 text-xs text-crimson">
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
               Projected to exceed budget by {money(projected - budgetAmount, currency)}
             </div>
@@ -215,7 +215,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
             <Button
               onClick={onSetBudget}
               size="sm"
-              className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90 shrink-0"
+              className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
             >
               Set budget
             </Button>

@@ -81,7 +81,7 @@ export function AddPropertyDialog({ open, onOpenChange, onCreated }: Props) {
           <Button
             disabled={create.isPending || !name.trim() || !address.trim()}
             onClick={submit}
-            className="rounded-xl font-semibold bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] text-black hover:opacity-90"
+            className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {create.isPending ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> Saving…</> : "Add property"}
           </Button>
