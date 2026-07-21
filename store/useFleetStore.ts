@@ -38,17 +38,18 @@ export interface FleetAgentLog {
 }
 
 // Helper for generating initial metrics
-const generateMetrics = (node: FleetNode, isInitial = false): FleetNode => {
+const generateMetrics = (node: FleetNode): FleetNode => {
   const base = node;
   return {
     ...base,
     cpu: {
       cores: base.cpu?.cores || 4,
       model: base.cpu?.model || "Unknown",
-      usage: Array.from({ length: base.cpu?.cores || 4 }, () =>
-        isInitial ? 45 : 10 + Math.random() * 75,
-      ),
-      temp: isInitial ? 42 : 50 + Math.random() * 20,
+      usage:
+        base.cpu?.usage?.length
+          ? base.cpu.usage
+          : Array.from({ length: base.cpu?.cores || 4 }, () => 0),
+      temp: base.cpu?.temp || 0,
     },
     ram: {
       total: base.ram?.total || 16,
@@ -80,14 +81,7 @@ const generateMetrics = (node: FleetNode, isInitial = false): FleetNode => {
             open: true,
           }),
         ) || [],
-      sshAttempts: base.network?.sshAttempts || [
-        {
-          ip: "192.168.1.42",
-          timestamp: "2024-03-12T10:00:00Z",
-          success: true,
-        },
-        { ip: "10.0.0.15", timestamp: "2024-03-12T10:05:00Z", success: true },
-      ],
+      sshAttempts: base.network?.sshAttempts || [],
       bandwidth: base.network?.bandwidth || { up: 0, down: 0 },
     },
     logs: base.logs || [],
@@ -160,98 +154,6 @@ const FLEET_NODES_TEMPLATE: FleetNode[] = [
         {
           port: 8080,
           service: "API Gateway",
-          open: false,
-        },
-      ],
-      sshAttempts: [],
-      bandwidth: {
-        up: 0,
-        down: 0,
-      },
-    },
-    port: 0,
-    logs: [],
-  },
-  {
-    id: "node-02",
-    name: "Pi-Cluster-01",
-    type: "raspberry-pi",
-    status: "online",
-    tailscaleIp: "100.64.0.2",
-    location: "Server Rack",
-    cpu: {
-      cores: 4,
-      model: "ARM Cortex-A72 (BCM2711)",
-      usage: [],
-      temp: 0,
-    },
-    ram: {
-      total: 8,
-      used: 0,
-      wired: 0,
-    },
-    storage: { total: 128, system: 12, ai: 32, available: 84 },
-    ai: {
-      status: "idle",
-      model: "TinyLlama-1.1B-Q8_0.gguf",
-      contextMax: 2048,
-      backend: "cpu",
-      models: [],
-      tps: 0,
-      contextUsed: 0,
-    },
-    network: {
-      wifiSignal: -55,
-      ports: [
-        {
-          port: 22,
-          service: "SSH",
-          open: false,
-        },
-      ],
-      sshAttempts: [],
-      bandwidth: {
-        up: 0,
-        down: 0,
-      },
-    },
-    port: 0,
-    logs: [],
-  },
-  {
-    id: "node-03",
-    name: "Cloud-VPS",
-    type: "cloud-vps",
-    status: "degraded",
-    tailscaleIp: "100.64.0.3",
-    location: "US-East (Virginia)",
-    cpu: {
-      cores: 2,
-      model: "AMD EPYC 7543P",
-      usage: [],
-      temp: 0,
-    },
-    ram: {
-      total: 4,
-      used: 0,
-      wired: 0,
-    },
-    storage: { total: 80, system: 15, ai: 0, available: 65 },
-    ai: {
-      status: "idle",
-      model: "—",
-      contextMax: 0,
-      backend: "cpu",
-      models: [],
-      tps: 0,
-      contextUsed: 0,
-    },
-    network: {
-      wifiSignal: -20,
-      ports: [
-        {
-          port: 22,
-          service: "SSH",
           open: false,
         },
       ],
@@ -357,7 +259,7 @@ interface FleetState {
 }
 
 export const useFleetStore = create<FleetState>((set) => ({
-  nodes: FLEET_NODES_TEMPLATE.map((n) => generateMetrics(n, true)),
+  nodes: FLEET_NODES_TEMPLATE.map((n) => generateMetrics(n)),
   activeNodeId: "node-01",
   agentFeed: [],
   loadBalancerEnabled: false,
@@ -372,12 +274,9 @@ export const useFleetStore = create<FleetState>((set) => ({
     set((state) => ({
       isInitialLoad: false,
       isApiError: false,
-      nodes: state.nodes.map((n) => {
-        if (n.id === "node-01") {
-          return { ...n, ...data };
-        }
-        return generateMetrics(n);
-      }),
+      nodes: state.nodes.map((n) =>
+        n.id === "node-01" ? { ...n, ...data } : n,
+      ),
     })),
   setApiError: (hasError) =>
     set((state) => ({
@@ -423,8 +322,7 @@ export const useFleetStore = create<FleetState>((set) => ({
             };
           }
         }
-        // Other nodes keep simulated data
-        return generateMetrics(n);
+        return n;
       }),
     }));
   },
@@ -435,7 +333,7 @@ export const useActiveNode = () => {
   const nodes = useFleetStore((s) => s.nodes);
   const activeNodeId = useFleetStore((s) => s.activeNodeId);
   const nodeArray = Array.isArray(nodes) ? nodes : [];
-  return nodeArray.find((n) => n.id === activeNodeId) || nodeArray[0] || generateMetrics(FLEET_NODES_TEMPLATE[0], true);
+  return nodeArray.find((n) => n.id === activeNodeId) || nodeArray[0] || generateMetrics(FLEET_NODES_TEMPLATE[0]);
 };
 
 export const useAggregatedStats = () => {

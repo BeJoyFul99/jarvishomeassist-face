@@ -5,12 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { staggerContainer, fadeUpItem } from "@/lib/motion";
 import {
   Home, Lightbulb, Thermometer, Camera, Speaker, WifiOff,
-  Laptop, Smartphone, HardDrive, Monitor,
-  Signal, Router, Settings as SettingsIcon, Plus, Trash2, Pencil, X, Check,
-  ToggleLeft, ToggleRight, Search, Loader2, RefreshCw, Info, Sparkles,
+  Signal, Settings as SettingsIcon, Plus, Trash2, Pencil, X, Check,
+  ToggleLeft, ToggleRight, Search, Loader2, RefreshCw, Sparkles,
 } from "lucide-react";
-import { DEMO_SMART_DEVICES, DEMO_NETWORK_DEVICES } from "@/lib/demoDevices";
-import { cn } from "@/lib/utils";
+import { DEMO_SMART_DEVICES } from "@/lib/demoDevices";
 import {
   Dialog,
   DialogContent,
@@ -48,18 +46,6 @@ interface SmartDevice {
   metadata: Record<string, any>;
 }
 
-interface NetworkDevice {
-  id: string;
-  name: string;
-  ip: string;
-  mac: string;
-  icon: any;
-  type: string;
-  online: boolean;
-  lastSeen: string;
-  bandwidth: string;
-}
-
 const SMART_TYPE_ICONS: Record<string, any> = {
   light: Lightbulb,
   thermostat: Thermometer,
@@ -68,27 +54,9 @@ const SMART_TYPE_ICONS: Record<string, any> = {
   sensor: Signal,
 };
 
-const NETWORK_TYPE_ICONS: Record<string, any> = {
-  Computer: Laptop,
-  Phone: Smartphone,
-  Tablet: Smartphone,
-  NAS: HardDrive,
-  Server: HardDrive,
-  Display: Monitor,
-  "Access Point": Router,
-};
-
-// Seed the Network tab with demo rows (real LAN scanning is not wired up yet).
-const INITIAL_NETWORK_DEVICES: NetworkDevice[] = DEMO_NETWORK_DEVICES.map((d) => ({
-  ...d,
-  icon: NETWORK_TYPE_ICONS[d.type] || Laptop,
-}));
-
 export default function DevicesPage() {
   const [devices, setDevices] = useState<SmartDevice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [networkDevices, setNetworkDevices] = useState(INITIAL_NETWORK_DEVICES);
-  const [tab, setTab] = useState<"smart" | "network">("smart");
   const [manageMode, setManageMode] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [busyDevices, setBusyDevices] = useState<Set<number>>(new Set());
@@ -105,13 +73,8 @@ export default function DevicesPage() {
     name: "", room: "", device_type: "light", brand: "wiz", model: "", ip: "", mac: "",
   });
 
-  // Network device dialog state
-  const [netDialogOpen, setNetDialogOpen] = useState(false);
-  const [editingNetDevice, setEditingNetDevice] = useState<NetworkDevice | null>(null);
-  const [netForm, setNetForm] = useState({ name: "", ip: "", mac: "", type: "Computer" });
-
   // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number | string; kind: "smart" | "network" } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const authHeaders = useCallback(() => {
     return { "Content-Type": "application/json" };
@@ -339,53 +302,7 @@ export default function DevicesPage() {
     setDeleteTarget(null);
   };
 
-  // Network device CRUD (still local state)
-  const openAddNet = () => {
-    setEditingNetDevice(null);
-    setNetForm({ name: "", ip: "", mac: "", type: "Computer" });
-    setNetDialogOpen(true);
-  };
-
-  const openEditNet = (device: NetworkDevice) => {
-    setEditingNetDevice(device);
-    setNetForm({ name: device.name, ip: device.ip, mac: device.mac, type: device.type });
-    setNetDialogOpen(true);
-  };
-
-  const saveNet = () => {
-    if (!netForm.name.trim()) return;
-    if (editingNetDevice) {
-      setNetworkDevices((prev) =>
-        prev.map((d) =>
-          d.id === editingNetDevice.id
-            ? { ...d, name: netForm.name, ip: netForm.ip, mac: netForm.mac, type: netForm.type, icon: NETWORK_TYPE_ICONS[netForm.type] || Laptop }
-            : d
-        )
-      );
-    } else {
-      const newDevice: NetworkDevice = {
-        id: `net-${Date.now()}`,
-        name: netForm.name,
-        ip: netForm.ip,
-        mac: netForm.mac,
-        type: netForm.type,
-        icon: NETWORK_TYPE_ICONS[netForm.type] || Laptop,
-        online: true,
-        lastSeen: "Now",
-        bandwidth: "—",
-      };
-      setNetworkDevices((prev) => [...prev, newDevice]);
-    }
-    setNetDialogOpen(false);
-  };
-
-  const deleteNet = (id: string) => {
-    setNetworkDevices((prev) => prev.filter((d) => d.id !== id));
-    setDeleteTarget(null);
-  };
-
   const onlineSmartCount = devices.filter((d) => d.online).length;
-  const onlineNetCount = networkDevices.filter((d) => d.online).length;
 
   return (
     <div className="bg-background">
@@ -398,11 +315,11 @@ export default function DevicesPage() {
             </div>
             <div>
               <h1 className="text-xl font-semibold text-foreground">Home Devices</h1>
-              <p className="text-sm text-muted-foreground">Smart home controls & network inventory</p>
+              <p className="text-sm text-muted-foreground">Smart home controls</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:justify-end">
-            {manageMode && tab === "smart" && (
+            {manageMode && (
               <>
                 <motion.button
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -428,19 +345,6 @@ export default function DevicesPage() {
                   Add Device
                 </motion.button>
               </>
-            )}
-            {manageMode && tab === "network" && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={openAddNet}
-                className="flex items-center gap-2 rounded-lg bg-emerald/10 border border-emerald/20 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-emerald transition-colors hover:bg-emerald/20"
-              >
-                <Plus className="w-4 h-4" />
-                Add Device
-              </motion.button>
             )}
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -474,38 +378,8 @@ export default function DevicesPage() {
           ))}
         </motion.div>
 
-        {/* Tab switcher */}
-        <motion.div variants={item} className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="bg-secondary/50 p-1.5 rounded-xl flex items-center w-full sm:w-auto relative">
-            {(["smart", "network"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={cn(
-                  "relative flex-1 sm:flex-initial px-6 py-2 rounded-lg text-sm font-medium transition-colors z-10",
-                  tab === t ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab === t && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute inset-0 bg-primary rounded-lg shadow-sm"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <span className="relative z-10">
-                  {t === "smart" ? "Smart Home" : "Network"}
-                  <span className="ml-1.5 opacity-60 font-mono text-xs">
-                    {t === "smart" ? onlineSmartCount : onlineNetCount}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-
         <AnimatePresence mode="wait">
-          {tab === "smart" ? (
+          {(
             <motion.div
               key="smart"
               initial={{ opacity: 0, y: 8 }}
@@ -611,7 +485,7 @@ export default function DevicesPage() {
                               <Pencil className="w-3 h-3" />
                             </button>
                             <button
-                              onClick={() => setDeleteTarget({ id: device.id, kind: "smart" })}
+                              onClick={() => setDeleteTarget(device.id)}
                               className="p-1.5 rounded-md bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -724,73 +598,6 @@ export default function DevicesPage() {
                   })}
                 </div>
               )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="network"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="glass-card-hover overflow-hidden"
-            >
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-amber/10 border-b border-amber/20">
-                <Info className="w-3.5 h-3.5 text-amber shrink-0" />
-                <span className="text-[11px] text-amber">
-                  Demo data — real LAN scanning isn't connected yet. Edits here are local and won't persist.
-                </span>
-              </div>
-              <div className={`grid gap-2 px-5 py-3 border-b border-border text-xs text-muted-foreground font-medium ${
-                manageMode ? "grid-cols-[1fr_120px_160px_100px_80px_70px]" : "grid-cols-[1fr_120px_160px_100px_80px]"
-              }`}>
-                <span>Device</span>
-                <span>IP Address</span>
-                <span>MAC Address</span>
-                <span>Bandwidth</span>
-                <span>Status</span>
-                {manageMode && <span>Actions</span>}
-              </div>
-              {networkDevices.map((device, i) => (
-                <motion.div
-                  key={device.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className={`grid gap-2 px-5 py-3 items-center border-b border-border/50 hover:bg-secondary/30 transition-colors ${
-                    manageMode ? "grid-cols-[1fr_120px_160px_100px_80px_70px]" : "grid-cols-[1fr_120px_160px_100px_80px]"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${device.online ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
-                    <device.icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div>
-                      <div className="text-sm font-medium text-foreground">{device.name}</div>
-                      <div className="text-[10px] text-muted-foreground">{device.type}</div>
-                    </div>
-                  </div>
-                  <span className="font-mono text-xs text-foreground">{device.ip}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">{device.mac}</span>
-                  <span className="font-mono text-xs text-foreground">{device.bandwidth}</span>
-                  <span className={`status-badge text-[10px] ${device.online ? "bg-emerald/10 text-emerald" : "bg-secondary text-muted-foreground"}`}>
-                    {device.online ? "ONLINE" : "OFFLINE"}
-                  </span>
-                  {manageMode && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEditNet(device)}
-                        className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget({ id: device.id, kind: "network" })}
-                        className="p-1.5 rounded-md bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
             </motion.div>
           )}
         </AnimatePresence>
@@ -907,83 +714,8 @@ export default function DevicesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Network Device Add/Edit Dialog */}
-      <Dialog open={netDialogOpen} onOpenChange={setNetDialogOpen}>
-        <DialogContent className="bg-popover border-border sm:max-w-md p-5 sm:p-6 overflow-hidden max-w-[92vw] sm:rounded-2xl">
-          <DialogHeader className="pb-1">
-            <DialogTitle className="text-lg font-bold text-foreground tracking-tight">
-              {editingNetDevice ? "Edit Network Device" : "Add Network Device"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-1">
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Device Name</Label>
-              <Input
-                value={netForm.name}
-                onChange={(e) => setNetForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. My Laptop"
-                className="bg-secondary/50 border-border h-9 text-sm"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">IP Address</Label>
-                <Input
-                  value={netForm.ip}
-                  onChange={(e) => setNetForm((f) => ({ ...f, ip: e.target.value }))}
-                  placeholder="192.168.1.100"
-                  className="bg-secondary/50 border-border h-9 font-mono text-[11px]"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">MAC Address</Label>
-                <Input
-                  value={netForm.mac}
-                  onChange={(e) => setNetForm((f) => ({ ...f, mac: e.target.value }))}
-                  placeholder="AA:BB:CC..."
-                  className="bg-secondary/50 border-border h-9 font-mono text-[11px]"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-[11px] font-medium tracking-wide">Type</Label>
-              <Select value={netForm.type} onValueChange={(v) => setNetForm((f) => ({ ...f, type: v }))}>
-                <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Computer">Computer</SelectItem>
-                  <SelectItem value="Phone">Phone</SelectItem>
-                  <SelectItem value="Tablet">Tablet</SelectItem>
-                  <SelectItem value="NAS">NAS</SelectItem>
-                  <SelectItem value="Server">Server</SelectItem>
-                  <SelectItem value="Display">Display</SelectItem>
-                  <SelectItem value="Access Point">Access Point</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <button
-              onClick={() => setNetDialogOpen(false)}
-              className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={saveNet}
-              disabled={!netForm.name.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Check className="w-3.5 h-3.5" />
-              {editingNetDevice ? "Save" : "Add"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+      <Dialog open={deleteTarget !== null} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent className="bg-popover border-border sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-foreground">Delete Device</DialogTitle>
@@ -1000,8 +732,7 @@ export default function DevicesPage() {
             </button>
             <button
               onClick={() => {
-                if (deleteTarget?.kind === "smart") deleteSmart(deleteTarget.id as number);
-                else if (deleteTarget?.kind === "network") deleteNet(deleteTarget.id as string);
+                if (deleteTarget !== null) deleteSmart(deleteTarget);
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-crimson text-primary-foreground text-sm font-medium hover:bg-crimson/90 transition-colors"
             >

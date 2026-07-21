@@ -4,9 +4,7 @@ import {
   SlidersHorizontal,
   Brain,
   Shield,
-  Terminal,
   House,
-  ChartColumn,
   Home,
   Lightbulb,
   Wifi,
@@ -32,18 +30,16 @@ export interface NavItem {
 // Admin navigation
 export const adminMainItems: NavItem[] = [
   { title: "Command Console", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Historical Data", url: "/analytics", icon: ChartColumn },
 ];
 
 export const adminSystemItems: NavItem[] = [
   { title: "Jarvis Chat", url: "/chat", icon: MessageCircle },
   { title: "Inference Engine", url: "/inference", icon: Brain },
-  { title: "Network & Ports", url: "/network", icon: Shield },
+  { title: "Network", url: "/network", icon: Shield },
   { title: "Home Devices", url: "/devices", icon: House },
   { title: "Energy Management", url: "/energy", icon: Zap },
   { title: "Utilities", url: "/utilities", icon: Receipt },
   { title: "Announcements", url: "/announcements", icon: Megaphone },
-  { title: "Terminal", url: "/terminal", icon: Terminal },
   { title: "Server Logs", url: "/logs", icon: ScrollText },
 ];
 

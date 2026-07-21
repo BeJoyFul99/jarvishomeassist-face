@@ -7,11 +7,9 @@ import { useAuthStore } from "@/store/useAuthStore";
 /** Routes only accessible to administrators (no resource perm override) */
 const ADMIN_ONLY_ROUTES = [
   "/dashboard",
-  "/analytics",
   "/inference",
   "/network",
   "/devices",
-  "/terminal",
 ];
 
 /** Routes that any non-admin can access if they have the right resource perm */

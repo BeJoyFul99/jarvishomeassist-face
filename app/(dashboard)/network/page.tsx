@@ -4,12 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { staggerContainer, springItem } from "@/lib/motion";
 import {
-  Network,
-  Shield,
-  Clock,
   Globe,
-  Activity,
-  ArrowUpDown,
   Wifi,
   Lock,
   Users,
@@ -20,7 +15,7 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
-import { useSystemStatus } from "@/hooks/useSystemStatus";
+import { useFleet } from "@/hooks/useFleet";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -175,7 +170,7 @@ const WifiEditCard = ({
 };
 
 export default function NetworkPage() {
-  const { status } = useSystemStatus();
+  const { activeNode } = useFleet();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canManageNetwork = hasPermission("network:manage");
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
@@ -248,24 +243,6 @@ export default function NetworkPage() {
     }
   };
 
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  };
-
-  const interfaces = [
-    { name: "en0", type: "Wi-Fi", ip: "192.168.1.42", status: "active", speed: "866 Mbps" },
-    { name: "en1", type: "Thunderbolt", ip: "—", status: "inactive", speed: "—" },
-    { name: "utun3", type: "Tailscale", ip: "100.64.0.12", status: "active", speed: "100 Mbps" },
-    { name: "lo0", type: "Loopback", ip: "127.0.0.1", status: "active", speed: "—" },
-  ];
-
-  const bandwidth = {
-    download: (Math.random() * 50 + 10).toFixed(1),
-    upload: (Math.random() * 15 + 2).toFixed(1),
-    latency: (Math.random() * 20 + 5).toFixed(0),
-  };
-
   return (
     <div className="bg-background">
       <motion.div variants={container} initial="hidden" animate="show" className="max-w-7xl mx-auto space-y-4">
@@ -275,30 +252,13 @@ export default function NetworkPage() {
             <Globe className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Network & Ports</h1>
-            <p className="text-sm text-muted-foreground">Interface monitoring and port security</p>
+            <h1 className="text-xl font-semibold text-foreground">Network</h1>
+            <p className="text-sm text-muted-foreground">Manage household Wi-Fi networks</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Wifi className="w-4 h-4 text-primary" />
-            <span className="font-mono text-sm text-foreground">{status.wifi_signal.toFixed(0)} dBm</span>
+            <span className="font-mono text-sm text-foreground">{Math.round(activeNode.network.wifiSignal)} dBm</span>
           </div>
-        </motion.div>
-
-        {/* Bandwidth cards */}
-        <motion.div variants={item} className="grid grid-cols-3 gap-3">
-          {[
-            { icon: ArrowUpDown, label: "Download", value: `${bandwidth.download} MB/s`, color: "text-emerald" },
-            { icon: ArrowUpDown, label: "Upload", value: `${bandwidth.upload} MB/s`, color: "text-primary" },
-            { icon: Activity, label: "Latency", value: `${bandwidth.latency} ms`, color: "text-amber" },
-          ].map((m) => (
-            <div key={m.label} className="glass-card-hover p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <m.icon className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{m.label}</span>
-              </div>
-              <div className={`font-mono text-xl font-semibold ${m.color}`}>{m.value}</div>
-            </div>
-          ))}
         </motion.div>
 
         {/* WiFi Management */}
@@ -327,90 +287,6 @@ export default function NetworkPage() {
           )}
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Network Interfaces */}
-          <motion.div variants={item} className="glass-card-hover p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Network className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-medium text-foreground">Network Interfaces</h3>
-            </div>
-            <div className="space-y-2">
-              {interfaces.map((iface) => (
-                <div key={iface.name} className="flex items-center justify-between py-1.5 px-3 bg-secondary/30 rounded-lg border-white/2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${iface.status === "active" ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
-                    <div className="flex items-baseline gap-2 truncate">
-                      <span className="font-mono text-xs font-semibold text-foreground">{iface.name}</span>
-                      <span className="text-[10px] text-muted-foreground opacity-60">{iface.type}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0">
-                    <div className="font-mono text-[11px] text-foreground">{iface.ip}</div>
-                    <div className="text-[9px] font-mono text-muted-foreground opacity-70 w-16 text-right">{iface.speed}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Port Sentry */}
-          <motion.div variants={item} className="glass-card-hover p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Shield className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-medium text-foreground">Port Sentry</h3>
-            </div>
-            <div className="space-y-2">
-              {status.ports.map((p) => (
-                <div key={p.port} className="flex items-center justify-between py-1.5 px-3 bg-secondary/30 rounded-lg border-white/2">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${p.open ? "bg-emerald pulse-dot" : "bg-muted-foreground"}`} />
-                    <span className="font-mono text-xs font-semibold text-foreground">:{p.port}</span>
-                    <span className="text-[10px] text-muted-foreground opacity-60 ml-1">{p.service}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`status-badge text-[9px] py-0.5! px-2! ${p.open ? "bg-emerald/10 text-emerald border border-emerald/20" : "bg-secondary text-muted-foreground"}`}>
-                      {p.open ? "LISTENING" : "CLOSED"}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Active Connections */}
-        <motion.div variants={item} className="glass-card-hover p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-medium text-foreground">Active Connections</h3>
-            <span className="ml-auto status-badge bg-secondary text-muted-foreground text-[10px]">
-              {status.ssh_attempts.length} connections
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5">
-            {status.ssh_attempts.map((attempt, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-center justify-between py-1.5 px-3 bg-secondary/30 rounded-lg border-white/2"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${attempt.success ? "bg-emerald" : "bg-crimson"}`} />
-                  <span className="font-mono text-xs font-bold text-foreground truncate">{attempt.ip}</span>
-                  <span className={`status-badge text-[9px] shrink-0 py-0.5! px-2! ${attempt.success ? "bg-emerald/10 text-emerald border border-emerald/20" : "bg-crimson/10 text-crimson border border-crimson/20"}`}>
-                    {attempt.success ? "ESTABLISHED" : "REJECTED"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 text-[10px] font-mono text-muted-foreground opacity-60">
-                  <Clock className="w-3 h-3" />
-                  {formatTime(attempt.timestamp)}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
       </motion.div>
     </div>
   );

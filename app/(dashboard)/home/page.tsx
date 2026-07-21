@@ -6,12 +6,10 @@ import {
   Cloud,
   Wifi,
   WifiOff,
-  Thermometer,
   Clock,
   Megaphone,
   ChevronRight,
   Lightbulb,
-  Shield,
   Pin,
   AlertTriangle,
   Check,
@@ -22,9 +20,6 @@ import { useFleet } from "@/hooks/useFleet";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
-import CircadianSlider from "@/components/home/CircadianSlider";
-import DevStatusBadge from "@/components/home/DevStatusBadge";
-import NetworkPulse from "@/components/home/NetworkPulse";
 import PomodoroRing from "@/components/home/PomodoroRing";
 import EnergyHeatmap from "@/components/home/EnergyHeatmap";
 import WeatherWidget from "@/components/home/WeatherWidget";
@@ -88,8 +83,31 @@ const HomePage = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  // null = unavailable (no permission / error) — card is hidden
+  const [lights, setLights] = useState<{ on: number; total: number } | null>(
+    null,
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ── Fetch smart-device summary (hidden if the user lacks access) ──
+  useEffect(() => {
+    const fetchLights = async () => {
+      try {
+        const res = await fetch("/api/devices", { headers: authHeaders() });
+        if (!res.ok) return;
+        const devices: { online: boolean; state?: { on?: boolean } }[] =
+          await res.json();
+        setLights({
+          on: devices.filter((d) => d.online && d.state?.on).length,
+          total: devices.length,
+        });
+      } catch {
+        // card stays hidden
+      }
+    };
+    fetchLights();
+  }, []);
 
   // ── Fetch announcements ────────────────────────────────
 
@@ -204,7 +222,7 @@ const HomePage = () => {
         {/* Status Cards */}
         <motion.div
           variants={item}
-          className="grid grid-cols-2 md:grid-cols-4 gap-3"
+          className={`grid grid-cols-2 gap-3 ${lights ? "md:grid-cols-4" : "md:grid-cols-3"}`}
         >
           <WeatherWidget />
 
@@ -235,40 +253,50 @@ const HomePage = () => {
                 {aggregated.onlineNodes > 0 ? "Online" : "Offline"}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                All systems normal
+                {aggregated.onlineNodes > 0
+                  ? `${aggregated.onlineNodes} node${aggregated.onlineNodes === 1 ? "" : "s"} reachable`
+                  : "No nodes reachable"}
               </p>
             </div>
           </motion.div>
 
-          <motion.div
-            whileHover={{ scale: 1.02, y: -1 }}
-            className="glass-card relative overflow-hidden group"
-          >
-            <motion.div
-              animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
-              transition={{
-                duration: 10,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 1,
-              }}
-              className="absolute -top-8 -right-8 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none transition-colors duration-500 group-hover:bg-emerald-500/40"
-            />
-            <div className="relative z-10 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-emerald">
-                <Shield className="w-5 h-5" />
-                <span className="text-xs font-mono text-muted-foreground">
-                  Security
-                </span>
+          {lights && (
+            <motion.button
+              whileHover={{ scale: 1.02, y: -1 }}
+              onClick={() => router.push("/home/devices")}
+              className="glass-card relative overflow-hidden group text-left"
+            >
+              <motion.div
+                animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
+                transition={{
+                  duration: 10,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 1,
+                }}
+                className="absolute -top-8 -right-8 w-32 h-32 bg-amber/20 rounded-full blur-3xl pointer-events-none transition-colors duration-500 group-hover:bg-amber/40"
+              />
+              <div className="relative z-10 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-amber">
+                  <Lightbulb className="w-5 h-5" />
+                  <span className="text-xs font-mono text-muted-foreground">
+                    Lights
+                  </span>
+                </div>
+                <p className="text-xl font-semibold text-foreground">
+                  {lights.on} on
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {lights.total} device{lights.total === 1 ? "" : "s"} total
+                </p>
               </div>
-              <p className="text-xl font-semibold text-foreground">Secure</p>
-              <p className="text-[11px] text-muted-foreground">VPN active</p>
-            </div>
-          </motion.div>
+            </motion.button>
+          )}
 
-          <motion.div
+          <motion.button
             whileHover={{ scale: 1.02, y: -1 }}
-            className="glass-card relative overflow-hidden group"
+            onClick={() => router.push("/home/announcements")}
+            className="glass-card relative overflow-hidden group text-left"
           >
             <motion.div
               animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.5, 0.3] }}
@@ -282,17 +310,22 @@ const HomePage = () => {
             />
             <div className="relative z-10 p-4 space-y-2">
               <div className="flex items-center gap-2 text-magenta">
-                <Thermometer className="w-5 h-5" />
+                <Megaphone className="w-5 h-5" />
                 <span className="text-xs font-mono text-muted-foreground">
-                  Home Temp
+                  Updates
                 </span>
               </div>
-              <p className="text-xl font-semibold text-foreground">71°F</p>
+              <p className="text-xl font-semibold text-foreground">
+                {announcementsLoading
+                  ? "…"
+                  : announcements.filter((a) => !a.is_read).length}{" "}
+                unread
+              </p>
               <p className="text-[11px] text-muted-foreground">
-                Thermostat: Auto
+                Household announcements
               </p>
             </div>
-          </motion.div>
+          </motion.button>
         </motion.div>
 
         {/* Quick Links */}
@@ -515,22 +548,13 @@ const HomePage = () => {
           )}
         </motion.div>
 
-        {/* Circadian + Pomodoro + Dev Status row */}
+        {/* Focus timer + Energy */}
         <motion.div
           variants={item}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2"
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2"
         >
-          <CircadianSlider />
           <PomodoroRing />
-          <div className="space-y-4">
-            <DevStatusBadge />
-            <EnergyHeatmap />
-          </div>
-        </motion.div>
-
-        {/* Network Pulse */}
-        <motion.div variants={item}>
-          <NetworkPulse />
+          <EnergyHeatmap />
         </motion.div>
       </motion.div>
     </>
