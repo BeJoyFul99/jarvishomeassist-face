@@ -15,7 +15,18 @@ import {
   EyeOff,
   Check,
   Loader2,
+  Ban,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useFleet } from "@/hooks/useFleet";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Input } from "@/components/ui/input";
@@ -177,6 +188,32 @@ export default function NetworkPage() {
   const canManageNetwork = hasPermission("network:manage");
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blockTarget, setBlockTarget] = useState<{ mac: string; name: string } | null>(null);
+  const [blocking, setBlocking] = useState(false);
+
+  const confirmBlock = async () => {
+    if (!blockTarget) return;
+    setBlocking(true);
+    try {
+      const res = await fetch("/api/v1/admin/network/block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mac: blockTarget.mac, block: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Block failed");
+      toast.success(`Blocked ${blockTarget.name}`, {
+        description: "The device has been denied network access.",
+      });
+      setBlockTarget(null);
+    } catch (e) {
+      toast.error("Couldn't block device", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setBlocking(false);
+    }
+  };
 
   const fetchNetworks = useCallback(async () => {
     try {
@@ -310,17 +347,18 @@ export default function NetworkPage() {
             </div>
           ) : (
             <div className="glass-card-hover overflow-hidden">
-              <div className="grid grid-cols-[1fr_140px_100px_70px] gap-2 px-4 py-2.5 border-b border-border text-[11px] text-muted-foreground font-medium">
+              <div className={`grid ${canManageNetwork ? "grid-cols-[1fr_130px_80px_60px_44px]" : "grid-cols-[1fr_140px_100px_70px]"} gap-2 px-4 py-2.5 border-b border-border text-[11px] text-muted-foreground font-medium`}>
                 <span>Device</span>
                 <span>MAC</span>
                 <span>Link</span>
-                <span className="text-right">Status</span>
+                <span className={canManageNetwork ? "" : "text-right"}>Status</span>
+                {canManageNetwork && <span className="text-right">Block</span>}
               </div>
               <div className="max-h-[420px] overflow-y-auto">
                 {net.lanDevices.map((d) => (
                   <div
                     key={d.ip + d.mac}
-                    className="grid grid-cols-[1fr_140px_100px_70px] gap-2 px-4 py-2.5 items-center border-b border-border/40 hover:bg-secondary/30 transition-colors"
+                    className={`grid ${canManageNetwork ? "grid-cols-[1fr_130px_80px_60px_44px]" : "grid-cols-[1fr_140px_100px_70px]"} gap-2 px-4 py-2.5 items-center border-b border-border/40 hover:bg-secondary/30 transition-colors`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {d.interface === "wifi" ? (
@@ -356,6 +394,21 @@ export default function NetworkPage() {
                         {d.active !== false ? "ONLINE" : "IDLE"}
                       </span>
                     </span>
+                    {canManageNetwork && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBlockTarget({ mac: d.mac, name: d.name || d.ip })
+                          }
+                          aria-label={`Block ${d.name || d.ip}`}
+                          title="Block this device"
+                          className="p-1.5 rounded-md bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -367,6 +420,45 @@ export default function NetworkPage() {
           </p>
         </motion.div>
       </motion.div>
+
+      {/* Block-device confirmation */}
+      <AlertDialog
+        open={blockTarget !== null}
+        onOpenChange={(o) => !o && setBlockTarget(null)}
+      >
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+              <Ban className="w-4 h-4 text-crimson" /> Block this device?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              <span className="text-foreground font-medium">
+                {blockTarget?.name}
+              </span>{" "}
+              (<span className="font-mono text-xs">{blockTarget?.mac}</span>)
+              will be denied access to your network via the router. You can
+              restore it from the router later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmBlock();
+              }}
+              disabled={blocking}
+              className="bg-crimson text-white hover:bg-crimson/90"
+            >
+              {blocking ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Block device"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
