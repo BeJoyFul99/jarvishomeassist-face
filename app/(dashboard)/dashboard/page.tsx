@@ -11,8 +11,9 @@ import NetworkSecurity from "@/components/dashboard/NetworkSecurity";
 import AgentFeed from "@/components/dashboard/AgentFeed";
 import ClusterMap from "@/components/dashboard/ClusterMap";
 import LiveFeed from "@/components/dashboard/LiveFeed";
+import ModelLibrary from "@/components/dashboard/ModelLibrary";
 import { Switch } from "@/components/ui/switch";
-import { Wifi, Thermometer, Brain, Laptop, AlertTriangle } from "lucide-react";
+import { Wifi, Thermometer, Laptop, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SystemStatus } from "@/hooks/useSystemStatus";
 
@@ -195,61 +196,7 @@ export default function DashboardPage() {
             <div className="lg:col-span-2">
               <InferenceEngine status={status} />
             </div>
-            <div className="glass-card-hover p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-magenta" />
-                  <h3 className="text-sm font-medium text-foreground">
-                    Model Library
-                  </h3>
-                </div>
-                <span className="text-[10px] font-mono text-muted-foreground">
-                  {activeNode.ai.models.length} models
-                </span>
-              </div>
-              <div className="flex items-center justify-between mb-4 p-2.5 bg-secondary/50 rounded-lg">
-                <span className="text-xs text-muted-foreground">Backend</span>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-[10px] font-mono ${activeNode.ai.backend === "cpu" ? "text-cyan" : "text-muted-foreground"}`}
-                  >
-                    CPU
-                  </span>
-                  <span className="text-muted-foreground">/</span>
-                  <span
-                    className={`text-[10px] font-mono ${activeNode.ai.backend === "gpu" ? "text-magenta" : "text-muted-foreground"}`}
-                  >
-                    GPU
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {activeNode.ai.models.map((model) => (
-                  <div
-                    key={model.name}
-                    className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-mono text-foreground truncate">
-                        {model.name}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {model.size} · {model.quantization}
-                      </div>
-                    </div>
-                    <button
-                      className={`ml-2 min-h-10 px-3 rounded-md text-[10px] font-mono transition-colors ${
-                        activeNode.ai.model === model.name
-                          ? "bg-magenta/10 text-magenta border border-magenta/20"
-                          : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-                      }`}
-                    >
-                      {activeNode.ai.model === model.name ? "Active" : "Load"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ModelLibrary />
           </motion.div>
 
           {/* Network & Security + Cluster Map */}
