@@ -68,9 +68,30 @@ export async function GET() {
         available: data.hardware?.storage?.available_gb || 0,
       },
       network: {
-        wifiSignal: data.network?.signal_dbm || -50,
-        ports: [],
-        sshAttempts: [],
+        wifiSignal: data.network?.signal_dbm ?? 0,
+        wifiAvailable: data.network?.wifi_available === true,
+        wifiQuality: data.network?.signal_quality || "Unavailable",
+        ssid: data.network?.ssid || "",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ports: (data.network?.port_sentry || []).map((p: any) => ({
+          port: p.port,
+          service: p.service || "TCP",
+          open: p.open !== false,
+        })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sshAttempts: (data.network?.connections || []).map((c: any) => ({
+          ip: c.remote || c.ip,
+          timestamp: c.timestamp,
+          success: c.success !== false,
+        })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        lanDevices: (data.network?.lan_devices || []).map((d: any) => ({
+          name: d.name || "",
+          ip: d.ip,
+          mac: d.mac,
+          interface: d.interface || "",
+          active: d.active !== false,
+        })),
         bandwidth: { up: 0, down: 0 },
       },
       ai: {

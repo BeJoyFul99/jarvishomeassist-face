@@ -22,8 +22,18 @@ export interface FleetNode {
   };
   network: {
     wifiSignal: number;
+    wifiAvailable: boolean;
+    wifiQuality: string;
+    ssid: string;
     ports: { port: number; service: string; open: boolean }[];
     sshAttempts: { ip: string; timestamp: string; success: boolean }[];
+    lanDevices: {
+      name?: string;
+      ip: string;
+      mac: string;
+      interface?: string;
+      active?: boolean;
+    }[];
     bandwidth: { up: number; down: number };
   };
   logs: string[];
@@ -73,7 +83,10 @@ const generateMetrics = (node: FleetNode): FleetNode => {
     },
     network: {
       ...base.network,
-      wifiSignal: base.network?.wifiSignal || -50,
+      wifiSignal: base.network?.wifiSignal || 0,
+      wifiAvailable: base.network?.wifiAvailable ?? false,
+      wifiQuality: base.network?.wifiQuality || "Unavailable",
+      ssid: base.network?.ssid || "",
       ports:
         base.network?.ports?.map(
           (p: { port: number; service: string; open: boolean }) => ({
@@ -82,6 +95,7 @@ const generateMetrics = (node: FleetNode): FleetNode => {
           }),
         ) || [],
       sshAttempts: base.network?.sshAttempts || [],
+      lanDevices: base.network?.lanDevices || [],
       bandwidth: base.network?.bandwidth || { up: 0, down: 0 },
     },
     logs: base.logs || [],
@@ -144,20 +158,13 @@ const FLEET_NODES_TEMPLATE: FleetNode[] = [
       contextUsed: 0,
     },
     network: {
-      wifiSignal: -38,
-      ports: [
-        {
-          port: 22,
-          service: "SSH",
-          open: false,
-        },
-        {
-          port: 8080,
-          service: "API Gateway",
-          open: false,
-        },
-      ],
+      wifiSignal: 0,
+      wifiAvailable: false,
+      wifiQuality: "Unavailable",
+      ssid: "",
+      ports: [],
       sshAttempts: [],
+      lanDevices: [],
       bandwidth: {
         up: 0,
         down: 0,
@@ -217,7 +224,10 @@ export function mapBackendStatus(data: any): Partial<FleetNode> {
       available: data.hardware?.storage?.available_gb || 0,
     },
     network: {
-      wifiSignal: data.network?.signal_dbm || -50,
+      wifiSignal: data.network?.signal_dbm ?? 0,
+      wifiAvailable: data.network?.wifi_available === true,
+      wifiQuality: data.network?.signal_quality || "Unavailable",
+      ssid: data.network?.ssid || "",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ports: (data.network?.port_sentry || []).map((p: any) => ({
         port: p.port,
@@ -230,6 +240,15 @@ export function mapBackendStatus(data: any): Partial<FleetNode> {
         ip: c.remote || c.ip,
         timestamp: c.timestamp,
         success: c.success !== false,
+      })),
+      // Real devices on the local network (router client list or ARP neighbors)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      lanDevices: (data.network?.lan_devices || []).map((d: any) => ({
+        name: d.name || "",
+        ip: d.ip,
+        mac: d.mac,
+        interface: d.interface || "",
+        active: d.active !== false,
       })),
       bandwidth: { up: 0, down: 0 },
     },

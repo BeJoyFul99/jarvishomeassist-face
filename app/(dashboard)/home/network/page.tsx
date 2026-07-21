@@ -7,8 +7,7 @@ import {
   Wifi,
   WifiOff,
   Globe,
-  ArrowDown,
-  ArrowUp,
+  Laptop,
   QrCode,
   Copy,
   Check,
@@ -192,11 +191,29 @@ const WifiCard = ({
   );
 };
 
+const signalColor = (dbm: number) => {
+  if (dbm >= -50) return "text-emerald";
+  if (dbm >= -60) return "text-cyan";
+  if (dbm >= -67) return "text-amber";
+  return "text-crimson";
+};
+// Literal classes so Tailwind's JIT keeps them.
+const signalBarBg = (dbm: number) => {
+  if (dbm >= -50) return "bg-emerald";
+  if (dbm >= -60) return "bg-cyan";
+  if (dbm >= -67) return "bg-amber";
+  return "bg-crimson";
+};
+// dBm (~-30 strong … ~-90 weak) → 0-100% bars
+const signalBars = (dbm: number) =>
+  Math.max(0, Math.min(4, Math.round((dbm + 90) / 15)));
+
 const HomeNetworkPage = () => {
-  const { aggregated } = useFleet();
+  const { aggregated, activeNode } = useFleet();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canManageNetwork = hasPermission("network:manage");
   const isOnline = aggregated.onlineNodes > 0;
+  const net = activeNode.network;
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -264,40 +281,109 @@ const HomeNetworkPage = () => {
         </div>
       </motion.div>
 
-      {/* Speed Cards */}
-      <motion.div
-        variants={item}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-3"
-      >
-        <div className="glass-card p-4 flex items-center gap-3">
-          <ArrowDown className="w-5 h-5 text-cyan" />
-          <div>
-            <p className="text-xs text-muted-foreground">Download</p>
-            <p className="text-lg font-semibold text-foreground">
-              245{" "}
-              <span className="text-xs text-muted-foreground">Mbps</span>
-            </p>
+      {/* WiFi Signal */}
+      <motion.div variants={item} className="glass-card p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Wifi
+              className={`w-6 h-6 shrink-0 ${net.wifiAvailable ? signalColor(net.wifiSignal) : "text-muted-foreground"}`}
+            />
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">WiFi Signal</p>
+              {net.wifiAvailable ? (
+                <p className="text-lg font-semibold text-foreground">
+                  {net.wifiQuality}
+                  {net.ssid && (
+                    <span className="text-sm text-muted-foreground font-normal">
+                      {" "}· {net.ssid}
+                    </span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-lg font-semibold text-muted-foreground">
+                  Unavailable
+                </p>
+              )}
+            </div>
           </div>
+          {net.wifiAvailable ? (
+            <div className="flex items-end gap-1 shrink-0" aria-hidden>
+              {[0, 1, 2, 3].map((i) => (
+                <span
+                  key={i}
+                  style={{ height: `${(i + 1) * 6 + 6}px` }}
+                  className={`w-1.5 rounded-sm ${
+                    i < signalBars(net.wifiSignal)
+                      ? signalBarBg(net.wifiSignal)
+                      : "bg-secondary"
+                  }`}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <ArrowUp className="w-5 h-5 text-magenta" />
-          <div>
-            <p className="text-xs text-muted-foreground">Upload</p>
-            <p className="text-lg font-semibold text-foreground">
-              42{" "}
-              <span className="text-xs text-muted-foreground">Mbps</span>
-            </p>
+        {net.wifiAvailable ? (
+          <p className="text-[11px] font-mono text-muted-foreground mt-2">
+            {Math.round(net.wifiSignal)} dBm
+          </p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Signal readout needs the server running directly on the host (not in
+            a container).
+          </p>
+        )}
+      </motion.div>
+
+      {/* Devices on network */}
+      <motion.div variants={item}>
+        <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+          <Globe className="w-4 h-4" /> Devices on Network
+          {net.lanDevices.length > 0 && (
+            <span className="text-[10px] font-mono text-muted-foreground">
+              ({net.lanDevices.length})
+            </span>
+          )}
+        </h2>
+        {net.lanDevices.length === 0 ? (
+          <div className="glass-card p-6 text-center text-sm text-muted-foreground">
+            No devices detected yet on the local network.
           </div>
-        </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <Globe className="w-5 h-5 text-emerald" />
-          <div>
-            <p className="text-xs text-muted-foreground">Ping</p>
-            <p className="text-lg font-semibold text-foreground">
-              12 <span className="text-xs text-muted-foreground">ms</span>
-            </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {net.lanDevices.map((d) => (
+              <div
+                key={d.ip + d.mac}
+                className="glass-card p-3 flex items-center gap-3"
+              >
+                <div className="p-2 rounded-lg bg-secondary shrink-0">
+                  {d.interface === "wifi" ? (
+                    <Wifi className="w-4 h-4 text-cyan" />
+                  ) : (
+                    <Laptop className="w-4 h-4 text-primary" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {d.name || d.ip}
+                  </p>
+                  <p className="text-[11px] font-mono text-muted-foreground truncate">
+                    {d.ip} · {d.mac}
+                  </p>
+                </div>
+                {d.interface && (
+                  <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full shrink-0">
+                    {d.interface === "wifi" ? "WiFi" : "Wired"}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
+        )}
+        <p className="text-[11px] text-muted-foreground mt-2">
+          {net.lanDevices.some((d) => d.name)
+            ? "Live device list from your router."
+            : "Devices your home hub has recently seen. Connect the router for the full list."}
+        </p>
       </motion.div>
 
       {/* WiFi Quick Connect */}
