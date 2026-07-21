@@ -340,6 +340,11 @@ export function billPdfUrl(id: number): string {
   return `/api/v1/utility-bills/${id}/pdf`;
 }
 
+/** Same endpoint but with attachment disposition — triggers a named download. */
+export function billPdfDownloadUrl(id: number): string {
+  return `/api/v1/utility-bills/${id}/pdf?download=1`;
+}
+
 // ── Budgets ──────────────────────────────────────────────────────
 
 export function useBudgets(propertyId: number | null) {

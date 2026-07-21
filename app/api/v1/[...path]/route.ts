@@ -43,6 +43,9 @@ async function handler(
     if (!isBodyless) {
       const ct = res.headers.get("content-type");
       if (ct) out.headers.set("content-type", ct);
+      // Preserve download filenames (e.g. bill PDFs)
+      const cd = res.headers.get("content-disposition");
+      if (cd) out.headers.set("content-disposition", cd);
     }
     return out;
   } catch (error) {

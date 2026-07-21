@@ -201,6 +201,11 @@ export function UploadBillDialog({
                 <div className="text-sm text-neutral-400 truncate max-w-full">
                   {phase.fileName}
                 </div>
+                {ev.phase === "progress" && ev.note && (
+                  <div className="text-xs text-primary/80 font-mono animate-pulse">
+                    {ev.note}
+                  </div>
+                )}
                 <p className="text-xs text-neutral-500 max-w-sm">
                   This usually takes a few seconds. You can close this window — we'll
                   notify you when it's ready.
