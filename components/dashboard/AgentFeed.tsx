@@ -5,7 +5,7 @@ import { useFleet, type FleetAgentLog } from "@/hooks/useFleet";
 const typeColors: Record<FleetAgentLog["type"], string> = {
   pulse: "text-cyan",
   info: "text-emerald",
-  warning: "text-volcano",
+  warning: "text-amber",
   error: "text-crimson",
 };
 
@@ -36,15 +36,15 @@ const AgentFeed = () => {
               key={i}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              className="font-mono text-[11px] leading-5 flex items-center gap-2"
+              className="font-mono text-[11px] leading-5 flex items-start gap-2"
             >
-              <span className="text-muted-foreground opacity-50">
+              <span className="text-muted-foreground opacity-50 shrink-0">
                 {new Date(log.timestamp).toISOString().slice(11, 19)}
               </span>
-              <span className={`${typeColors[log.type]} opacity-80`}>
+              <span className={`${typeColors[log.type]} opacity-80 shrink-0`}>
                 [{log.nodeName.toUpperCase()}]
               </span>
-              <span className={`${typeColors[log.type]} opacity-60`}>
+              <span className={`${typeColors[log.type]} opacity-60 min-w-0 break-words`}>
                 {log.message}
               </span>
             </motion.div>

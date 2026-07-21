@@ -23,7 +23,7 @@ export function GhostBillPreview() {
   return (
     <motion.div {...fade} aria-hidden className="pointer-events-none select-none">
       <div className="relative">
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-neutral-950 to-transparent z-10" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent z-10" />
         <div className="opacity-40 grid gap-3 md:grid-cols-3">
           <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden">
             <div className="bg-gradient-to-br from-[#5e5ce6] to-[#a5b4fc] px-5 py-4 flex items-center justify-between relative">
@@ -55,7 +55,7 @@ export function GhostBillPreview() {
               </div>
             </div>
           </Card>
-          <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden">
+          <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden hidden md:block">
             <div className="bg-gradient-to-br from-[#30d158] to-[#6ee7b7] px-5 py-4 flex items-center justify-between relative">
               <div className="absolute inset-0 bg-black/30" />
               <div className="relative flex items-center gap-2 text-white">
@@ -77,7 +77,7 @@ export function GhostBillPreview() {
               </div>
             </div>
           </Card>
-          <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden">
+          <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden hidden md:block">
             <div className="bg-gradient-to-br from-[#bf5af2] to-[#d4b5ff] px-5 py-4 flex items-center justify-between relative">
               <div className="absolute inset-0 bg-black/30" />
               <div className="relative flex items-center gap-2 text-white">

@@ -10,7 +10,6 @@ interface MemoryGaugeProps {
 
 const MemoryGauge = ({ usedGb, wiredGb, totalGb }: MemoryGaugeProps) => {
   const usedPct = totalGb > 0 ? (usedGb / totalGb) * 100 : 0;
-  const wiredPct = totalGb > 0 ? (wiredGb / totalGb) * 100 : 0;
   const pressure =
     usedPct > 85 ? "Critical" : usedPct > 70 ? "Warning" : "Normal";
   const pressureColor =
@@ -24,7 +23,6 @@ const MemoryGauge = ({ usedGb, wiredGb, totalGb }: MemoryGaugeProps) => {
   const radius = 58;
   const circumference = 2 * Math.PI * radius;
   const usedDash = (usedPct / 100) * circumference;
-  const wiredDash = (wiredPct / 100) * circumference;
 
   const usedParts = getStorageParts(usedGb);
   const totalParts = getStorageParts(totalGb);
@@ -65,14 +63,6 @@ const MemoryGauge = ({ usedGb, wiredGb, totalGb }: MemoryGaugeProps) => {
               animate={{ strokeDashoffset: circumference - usedDash }}
               transition={{ duration: 1, ease: "easeOut" }}
             />
-            {/* <motion.circle
-              cx="70" cy="70" r={radius - 12} fill="none"
-              stroke="hsl(var(--amber))"
-              strokeWidth="4" strokeLinecap="round" opacity={0.6}
-              strokeDasharray={circumference * ((radius - 12) / radius)}
-              animate={{ strokeDashoffset: circumference * ((radius - 12) / radius) - wiredDash * ((radius - 12) / radius) }}
-              transition={{ duration: 1, ease: "easeOut" }}
-            /> */}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-2xl font-mono font-semibold text-foreground">
@@ -95,12 +85,6 @@ const MemoryGauge = ({ usedGb, wiredGb, totalGb }: MemoryGaugeProps) => {
             {formatStorage(usedGb - wiredGb)}
           </span>
         </div>
-        {/* <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber" /> Wired
-          </span>
-          <span className="font-mono text-foreground">{wiredGb.toFixed(1)} GB</span>
-        </div> */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Pressure</span>
           <span className={`font-mono font-medium ${pressureColor}`}>

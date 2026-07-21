@@ -19,7 +19,7 @@ const CpuMatrix = ({ cpuUsage, cpuTemp, history }: CpuMatrixProps) => {
           : "Nominal";
   const thermalColor =
     cpuTemp == -1
-      ? "text-gray-500 bg-gray-500/10"
+      ? "text-muted-foreground bg-secondary"
       : cpuTemp > 95
         ? "text-crimson bg-crimson/10"
         : cpuTemp > 80
@@ -33,9 +33,9 @@ const CpuMatrix = ({ cpuUsage, cpuTemp, history }: CpuMatrixProps) => {
           <Cpu className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-medium text-foreground">CPU Matrix</h3>
         </div>
-        <span className={`status-badge ${thermalColor}`}>
+        <span className={`status-badge text-[10px] whitespace-nowrap ${thermalColor}`}>
           <Thermometer className="w-3 h-3 inline mr-1" />
-          {cpuTemp == -1 ? "N/A" : cpuTemp.toFixed(2)}°C · {thermalState}
+          {cpuTemp == -1 ? "N/A" : cpuTemp.toFixed(0)}°C · {thermalState}
         </span>
       </div>
 
@@ -67,18 +67,20 @@ const CpuMatrix = ({ cpuUsage, cpuTemp, history }: CpuMatrixProps) => {
         ))}
       </div>
 
-      {/* Mini sparkline */}
-      <div className="mt-4 flex gap-1 items-end h-8">
-        {history.slice(-20).map((point, i) => (
-          <motion.div
-            key={i}
-            className="flex-1 rounded-sm bg-primary/40"
-            initial={{ height: 0 }}
-            animate={{ height: `${Math.max(point.cpu, 5)}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        ))}
-      </div>
+      {/* Mini sparkline (hidden when no history is available) */}
+      {history.length > 0 && (
+        <div className="mt-4 flex gap-1 items-end h-8">
+          {history.slice(-20).map((point, i) => (
+            <motion.div
+              key={i}
+              className="flex-1 rounded-sm bg-primary/40"
+              initial={{ height: 0 }}
+              animate={{ height: `${Math.max(point.cpu, 5)}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

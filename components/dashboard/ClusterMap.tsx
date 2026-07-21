@@ -1,79 +1,103 @@
 import { useFleet } from "@/hooks/useFleet";
 
+const VIEW_W = 400;
+const VIEW_H = 170;
+
+const statusColors: Record<string, string> = {
+  online: "hsl(var(--cyan))",
+  degraded: "hsl(var(--amber))",
+  offline: "hsl(var(--crimson))",
+};
+
 const ClusterMap = () => {
   const { nodes, activeNodeId, setActiveNodeId } = useFleet();
 
-  const positions: Record<string, { x: number; y: number }> = {
-    "node-01": { x: 120, y: 80 },
-    "node-02": { x: 300, y: 60 },
-    "node-03": { x: 420, y: 140 },
-  };
-
-  const statusColors: Record<string, string> = {
-    online: "hsl(var(--cyan))",
-    degraded: "hsl(var(--volcano))",
-    offline: "hsl(var(--crimson))",
-  };
+  // Distribute nodes evenly across the map, whatever the fleet size
+  const positioned = nodes.map((node, i) => ({
+    node,
+    x: ((i + 1) * VIEW_W) / (nodes.length + 1),
+    y: nodes.length > 1 ? (i % 2 === 0 ? 60 : 95) : 70,
+  }));
 
   return (
     <div className="glass-card-hover p-5">
-      <h3 className="text-sm font-medium text-foreground mb-3">Cluster Map</h3>
-      <svg viewBox="0 0 540 200" className="w-full h-auto">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-foreground">Cluster Map</h3>
+        <span className="text-[10px] font-mono text-muted-foreground">
+          {nodes.length} {nodes.length === 1 ? "node" : "nodes"}
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="w-full h-auto">
         {/* Connection lines */}
-        {nodes.map((node, i) => {
-          const pos = positions[node.id];
-          return nodes.slice(i + 1).map(other => {
-            const opos = positions[other.id];
-            return (
-              <line
-                key={`${node.id}-${other.id}`}
-                x1={pos.x} y1={pos.y} x2={opos.x} y2={opos.y}
-                stroke="hsl(var(--border))"
-                strokeWidth="1"
-                strokeDasharray={node.status === "offline" || other.status === "offline" ? "4,4" : "none"}
-                opacity={0.5}
-              />
-            );
-          });
-        })}
+        {positioned.map((a, i) =>
+          positioned.slice(i + 1).map((b) => (
+            <line
+              key={`${a.node.id}-${b.node.id}`}
+              x1={a.x}
+              y1={a.y}
+              x2={b.x}
+              y2={b.y}
+              stroke="hsl(var(--border))"
+              strokeWidth="1"
+              strokeDasharray={
+                a.node.status === "offline" || b.node.status === "offline"
+                  ? "4,4"
+                  : undefined
+              }
+              opacity={0.5}
+            />
+          ))
+        )}
 
         {/* Nodes */}
-        {nodes.map(node => {
-          const pos = positions[node.id];
+        {positioned.map(({ node, x, y }) => {
           const isActive = node.id === activeNodeId;
+          const color =
+            statusColors[node.status] ?? "hsl(var(--muted-foreground))";
           return (
-            <g key={node.id} onClick={() => setActiveNodeId(node.id)} className="cursor-pointer">
-              {/* Glow */}
+            <g
+              key={node.id}
+              onClick={() => setActiveNodeId(node.id)}
+              className="cursor-pointer"
+            >
+              {/* Enlarged invisible hit area for touch */}
+              <circle cx={x} cy={y} r="26" fill="transparent" />
               {isActive && (
                 <circle
-                  cx={pos.x} cy={pos.y} r="24"
+                  cx={x}
+                  cy={y}
+                  r="23"
                   fill="none"
-                  stroke={statusColors[node.status]}
+                  stroke={color}
                   strokeWidth="1"
                   opacity={0.3}
                 />
               )}
               <circle
-                cx={pos.x} cy={pos.y} r="16"
-                fill={isActive ? statusColors[node.status] : "hsl(var(--secondary))"}
-                stroke={statusColors[node.status]}
+                cx={x}
+                cy={y}
+                r="16"
+                fill={isActive ? color : "hsl(var(--secondary))"}
+                stroke={color}
                 strokeWidth={isActive ? 2 : 1}
                 opacity={node.status === "offline" ? 0.3 : 1}
               />
               <text
-                x={pos.x} y={pos.y + 32}
+                x={x}
+                y={y + 36}
                 textAnchor="middle"
                 fill="hsl(var(--muted-foreground))"
-                fontSize="9"
+                fontSize="10"
                 fontFamily="JetBrains Mono, monospace"
               >
                 {node.name}
               </text>
               <text
-                x={pos.x} y={pos.y + 44}
+                x={x}
+                y={y + 50}
                 textAnchor="middle"
                 fill="hsl(var(--muted-foreground))"
-                fontSize="8"
+                fontSize="10"
                 fontFamily="JetBrains Mono, monospace"
                 opacity={0.6}
               >

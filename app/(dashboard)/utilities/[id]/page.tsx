@@ -3,6 +3,7 @@
 import { memo, use, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { staggerContainer, fadeUpItem } from "@/lib/motion";
 import {
   ArrowLeft,
   AlertCircle,
@@ -14,6 +15,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  FileText,
   RefreshCw,
   Pencil,
 } from "lucide-react";
@@ -37,6 +39,7 @@ import {
   useUpdateBill,
   useUpdateLineItem,
   billPdfUrl,
+  billPdfDownloadUrl,
   type UtilityBill,
   type UtilityBillLineItem,
   type UtilityBillMeter,
@@ -47,6 +50,7 @@ import {
 import { useAuthStore } from "@/store/useAuthStore";
 import { toast } from "sonner";
 import { MarkPaidDialog } from "@/components/utilities/MarkPaidDialog";
+import BillPdfDialog from "@/components/utilities/BillPdfDialog";
 import {
   HeroSkeleton,
   UtilityCardsSkeleton,
@@ -86,6 +90,8 @@ const UTILITY_META: Record<
 };
 
 const ORDER: UtilityType[] = ["electricity", "water", "hvac", "other"];
+
+const container = staggerContainer(0.06);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +174,7 @@ export default function BillDetailPage(props: {
 
   // Mark paid dialog state
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
 
   const { data, isLoading, error } = useBill(
     Number.isFinite(id) ? id : null,
@@ -209,17 +216,9 @@ export default function BillDetailPage(props: {
     }
   }
 
-  const fade = reduced
-    ? {}
-    : {
-        initial: { opacity: 0, y: 12 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.3 },
-      };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white px-8 py-8 space-y-6">
+      <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 md:px-8 md:py-8 space-y-6">
         <BackLink />
         <HeroSkeleton />
         <UtilityCardsSkeleton />
@@ -230,10 +229,10 @@ export default function BillDetailPage(props: {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-black text-white px-8 py-8">
+      <div className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 md:px-8 md:py-8">
         <BackLink />
-        <Card className="rounded-[20px] border-red-500/20 bg-red-950/20 p-6 mt-6">
-          <div className="flex items-center gap-3 text-red-300">
+        <Card className="glass-card border-crimson/20 bg-crimson/5 p-5 mt-6">
+          <div className="flex items-center gap-3 text-sm text-crimson">
             <AlertCircle className="h-4 w-4" aria-hidden />
             Couldn&apos;t load this bill.
           </div>
@@ -251,15 +250,39 @@ export default function BillDetailPage(props: {
   const effectiveLateFees = billEdits.late_fees ?? lateFees;
 
   return (
-    <div className="min-h-screen bg-black text-white px-8 py-8 space-y-6 pb-24">
+    <motion.div
+      variants={container}
+      initial={reduced ? false : "hidden"}
+      animate="show"
+      className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 md:px-8 md:py-8 space-y-6 pb-28"
+    >
       <BackLink />
 
-      {/* Admin action buttons */}
-      {isAdmin && bill.extraction_status !== "processing" && (
-        <div className="flex items-center gap-2 justify-end">
-          {bill.payment_status !== "paid" && (
+      {/* Action buttons — PDF access for everyone, admin actions gated */}
+      {(bill.file_path || (isAdmin && bill.extraction_status !== "processing")) && (
+        <div className="flex flex-wrap items-center gap-2 justify-end">
+          {bill.file_path && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setPdfOpen(true)}
+                className="rounded-lg border-white/20 bg-white/5 hover:bg-white/10"
+              >
+                <FileText className="h-3.5 w-3.5 mr-1" /> View PDF
+              </Button>
+              <Button
+                variant="outline"
+                asChild
+                className="rounded-lg border-white/20 bg-white/5 hover:bg-white/10"
+              >
+                <a href={billPdfDownloadUrl(bill.id)}>
+                  <Download className="h-3.5 w-3.5 mr-1" /> Download
+                </a>
+              </Button>
+            </>
+          )}
+          {isAdmin && bill.extraction_status !== "processing" && bill.payment_status !== "paid" && (
             <Button
-              size="sm"
               variant="outline"
               onClick={() => setMarkPaidOpen(true)}
               className="rounded-lg border-white/20 bg-white/5 hover:bg-white/10"
@@ -267,9 +290,8 @@ export default function BillDetailPage(props: {
               <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Mark paid
             </Button>
           )}
-          {!editing ? (
+          {isAdmin && bill.extraction_status !== "processing" && !editing ? (
             <Button
-              size="sm"
               variant="outline"
               onClick={() => setEditing(true)}
               className="rounded-lg border-white/20 bg-white/5 hover:bg-white/10"
@@ -280,15 +302,22 @@ export default function BillDetailPage(props: {
         </div>
       )}
 
+      {bill.file_path && (
+        <BillPdfDialog
+          billId={bill.id}
+          open={pdfOpen}
+          onOpenChange={setPdfOpen}
+        />
+      )}
+
       {/* Tier 1 — Hero */}
       <motion.section
-        {...fade}
-        className="grid gap-6 lg:grid-cols-[2fr,3fr]"
+        variants={fadeUpItem}
+        className="grid gap-4 lg:grid-cols-[2fr,3fr]"
         aria-label="Bill summary"
       >
         <HeroLeft
           bill={bill}
-          reduced={!!reduced}
           editing={editing}
           effectiveTotalAmount={effectiveTotalAmount}
           effectiveLateFees={effectiveLateFees}
@@ -306,7 +335,7 @@ export default function BillDetailPage(props: {
 
       {/* Extraction status banner */}
       {bill.extraction_status !== "completed" && (
-        <motion.div {...fade}>
+        <motion.div variants={fadeUpItem}>
           <ExtractionBanner
             bill={bill}
             isAdmin={isAdmin}
@@ -323,8 +352,8 @@ export default function BillDetailPage(props: {
 
       {/* Tier 1.5 — Statement details + Payment activity */}
       <motion.section
-        {...fade}
-        className="grid gap-3 md:grid-cols-2"
+        variants={fadeUpItem}
+        className="grid grid-cols-1 gap-3 md:grid-cols-2"
         aria-label="Statement details and payment activity"
       >
         <StatementDetailsCard bill={bill} property={property} />
@@ -333,8 +362,8 @@ export default function BillDetailPage(props: {
 
       {/* Tier 2 — Utility Cards */}
       <motion.section
-        {...fade}
-        className="grid gap-3 md:grid-cols-2 lg:grid-cols-3"
+        variants={fadeUpItem}
+        className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
         aria-label="Utility breakdown"
       >
         {ORDER.filter((u) => (totals[u] ?? 0) !== 0).map((u) => (
@@ -354,13 +383,13 @@ export default function BillDetailPage(props: {
       </motion.section>
 
       {/* Tier 2.25 — Bill Total Reconciliation */}
-      <motion.section {...fade} aria-label="Bill total reconciliation">
+      <motion.section variants={fadeUpItem} aria-label="Bill total reconciliation">
         <BillTotalSummary bill={bill} totals={totals} />
       </motion.section>
 
       {/* Tier 2.5 — Meters */}
       {meters.length > 0 && (
-        <motion.section {...fade} aria-label="Meter readings">
+        <motion.section variants={fadeUpItem} aria-label="Meter readings">
           <MetersTable meters={meters} />
         </motion.section>
       )}
@@ -374,11 +403,10 @@ export default function BillDetailPage(props: {
         >
           <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-neutral-950/90 backdrop-blur px-4 py-2 shadow-2xl">
             <span className="text-xs text-neutral-400 mr-2">Editing</span>
-            <Button variant="ghost" size="sm" onClick={cancelEdit}>
+            <Button variant="ghost" onClick={cancelEdit}>
               Cancel
             </Button>
             <Button
-              size="sm"
               onClick={() => saveAll(bill.id)}
               disabled={saving}
               className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
@@ -396,7 +424,7 @@ export default function BillDetailPage(props: {
         billId={bill.id}
         totalAmount={bill.total_amount}
       />
-    </div>
+    </motion.div>
   );
 }
 
@@ -418,7 +446,6 @@ function BackLink() {
 
 function HeroLeft({
   bill,
-  reduced,
   editing,
   effectiveTotalAmount,
   effectiveLateFees,
@@ -426,7 +453,6 @@ function HeroLeft({
   onLateFeesChange,
 }: {
   bill: UtilityBill;
-  reduced: boolean;
   editing: boolean;
   effectiveTotalAmount: number;
   effectiveLateFees: number;
@@ -440,9 +466,9 @@ function HeroLeft({
   const periodEnd = parseBillDate(bill.billing_period_end);
 
   return (
-    <Card className="rounded-[20px] border-white/10 bg-gradient-to-br from-neutral-950 to-neutral-900 p-6 flex flex-col justify-between">
+    <div className="glass-card p-5 flex flex-col justify-between">
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+        <div className="text-sm font-medium text-muted-foreground">
           Bill total
         </div>
         {editing ? (
@@ -450,12 +476,12 @@ function HeroLeft({
             <EditableAmount
               value={effectiveTotalAmount}
               onChange={onTotalAmountChange}
-              className="text-[40px] leading-none font-extrabold"
+              className="text-3xl sm:text-4xl leading-none font-bold"
             />
           </div>
         ) : (
           <div
-            className="mt-2 text-[56px] leading-none font-extrabold tabular-nums"
+            className="mt-2 text-4xl sm:text-5xl leading-none font-bold tabular-nums"
             aria-label={`Total: ${money(bill.total_amount, bill.currency)}`}
           >
             {money(bill.total_amount, bill.currency)}
@@ -482,7 +508,7 @@ function HeroLeft({
         )}
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-3 items-center">
+      <div className="mt-6 flex flex-wrap gap-2 items-center">
         <PaymentChip bill={bill} />
         {due && daysToDue !== null && bill.payment_status !== "paid" && (
           <DueChip days={daysToDue} />
@@ -498,11 +524,11 @@ function HeroLeft({
               />
             </div>
           ) : (
-            <LateFeeChip amount={bill.late_fees} reduced={reduced} />
+            <LateFeeChip amount={bill.late_fees} />
           )
         )}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -530,8 +556,8 @@ function HeroRight({
 
   if (segments.length === 0) {
     return (
-      <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
-        <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+      <div className="glass-card p-5 flex flex-col gap-3">
+        <div className="text-sm font-medium text-muted-foreground">
           Breakdown
         </div>
         <div className="flex flex-col items-start gap-2 py-4">
@@ -544,13 +570,13 @@ function HeroRight({
               : "Edit the bill or re-extract to populate electricity, water, and HVAC totals."}
           </p>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-4">
-      <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+    <div className="glass-card p-5 flex flex-col gap-4">
+      <div className="text-sm font-medium text-muted-foreground">
         Breakdown
       </div>
 
@@ -571,7 +597,7 @@ function HeroRight({
       </div>
 
       {/* Legend filter tiles */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {segments.map((s) => {
           const Icon = UTILITY_META[s.u].icon;
           const active = filter === s.u;
@@ -607,7 +633,7 @@ function HeroRight({
           );
         })}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -667,8 +693,8 @@ function StatementDetailsCard({
   ];
 
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
-      <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+    <div className="glass-card p-5 flex flex-col gap-3">
+      <div className="text-sm font-medium text-muted-foreground">
         Statement details
       </div>
       <div className="flex flex-col divide-y divide-white/5">
@@ -678,13 +704,13 @@ function StatementDetailsCard({
             className="flex items-start justify-between gap-4 py-2 text-sm"
           >
             <span className="text-neutral-400 shrink-0">{r.label}</span>
-            <span className="text-neutral-100 text-right break-words">
+            <span className="text-neutral-100 text-right break-words min-w-0">
               {r.value}
             </span>
           </div>
         ))}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -698,8 +724,8 @@ function PaymentActivityCard({ bill }: { bill: UtilityBill }) {
   const hasAny = prev !== 0 || paid !== 0 || fwd !== 0 || late !== 0;
 
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
-      <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+    <div className="glass-card p-5 flex flex-col gap-3">
+      <div className="text-sm font-medium text-muted-foreground">
         Payment activity
       </div>
       {!hasAny ? (
@@ -731,7 +757,7 @@ function PaymentActivityCard({ bill }: { bill: UtilityBill }) {
           )}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -788,9 +814,9 @@ function BillTotalSummary({
   const hasCharges = chargeRows.length > 0;
 
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+    <div className="glass-card p-5 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm font-medium text-muted-foreground">
           Bill total
         </div>
         {!matchesTotal && hasCharges && (
@@ -851,12 +877,12 @@ function BillTotalSummary({
 
         <div className="flex items-center justify-between py-3">
           <span className="text-sm font-semibold text-foreground">Total due</span>
-          <span className="text-lg font-extrabold tabular-nums text-foreground">
+          <span className="text-lg font-bold tabular-nums text-foreground">
             {money(bill.total_amount, bill.currency)}
           </span>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -893,9 +919,9 @@ function PaymentChip({ bill }: { bill: UtilityBill }) {
   const s: PaymentStatus = bill.payment_status;
   const styles: Record<PaymentStatus, string> = {
     unpaid: "bg-white/5 text-neutral-300 border-white/10",
-    partial: "bg-amber-500/10 text-amber-300 border-amber-500/20",
-    paid: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-    overdue: "bg-red-500/10 text-red-300 border-red-500/20",
+    partial: "bg-amber/10 text-amber border-amber/20",
+    paid: "bg-emerald/10 text-emerald border-emerald/20",
+    overdue: "bg-crimson/10 text-crimson border-crimson/20",
   };
   const Icon =
     s === "paid" ? CheckCircle2 : s === "overdue" ? AlertTriangle : Clock;
@@ -915,7 +941,7 @@ function DueChip({ days }: { days: number }) {
     return (
       <Badge
         variant="outline"
-        className="rounded-full px-2.5 py-1 gap-1 bg-red-500/10 text-red-300 border-red-500/20"
+        className="rounded-full px-2.5 py-1 gap-1 bg-crimson/10 text-crimson border-crimson/20"
       >
         <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
         Overdue by {Math.abs(days)}d
@@ -926,7 +952,7 @@ function DueChip({ days }: { days: number }) {
     return (
       <Badge
         variant="outline"
-        className="rounded-full px-2.5 py-1 gap-1 bg-[#ffd60a]/10 text-[#ffd60a] border-[#ffd60a]/20"
+        className="rounded-full px-2.5 py-1 gap-1 bg-amber/10 text-amber border-amber/20"
       >
         <Clock className="h-3.5 w-3.5" aria-hidden />
         Due today
@@ -944,24 +970,13 @@ function DueChip({ days }: { days: number }) {
   );
 }
 
-function LateFeeChip({
-  amount,
-  reduced,
-}: {
-  amount: number;
-  reduced: boolean;
-}) {
+function LateFeeChip({ amount }: { amount: number }) {
   return (
     <Badge
       variant="outline"
-      className="rounded-full px-2.5 py-1 gap-2 bg-red-500/10 text-red-300 border-red-500/20"
+      className="rounded-full px-2.5 py-1 gap-2 bg-crimson/10 text-crimson border-crimson/20"
     >
-      <span className="relative inline-block h-2 w-2" aria-hidden>
-        <span className="absolute inset-0 rounded-full bg-red-400" />
-        {!reduced && (
-          <span className="absolute inset-0 rounded-full bg-red-400 animate-ping" />
-        )}
-      </span>
+      <span className="inline-block h-2 w-2 rounded-full bg-crimson" aria-hidden />
       <span>Late fee {money(amount)}</span>
     </Badge>
   );
@@ -996,8 +1011,8 @@ function UtilityCard({
     totalAmount > 0 ? Math.min(100, (subtotal / totalAmount) * 100) : 0;
 
   return (
-    <Card
-      className={`rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden transition-opacity ${
+    <div
+      className={`glass-card overflow-hidden transition-opacity ${
         dim ? "opacity-40" : "opacity-100"
       }`}
       aria-label={`${meta.label} utility card`}
@@ -1019,7 +1034,7 @@ function UtilityCard({
       </div>
 
       {/* Line items */}
-      <div className="p-5 space-y-2">
+      <div className="p-4 sm:p-5 space-y-2">
         {items.map((li) => {
           const currentAmount = lineEdits[li.id]?.amount ?? li.amount;
           return (
@@ -1053,7 +1068,7 @@ function UtilityCard({
               ) : (
                 <div
                   className={`tabular-nums font-medium shrink-0 ${
-                    li.amount < 0 ? "text-emerald-300" : "text-neutral-100"
+                    li.amount < 0 ? "text-emerald" : "text-neutral-100"
                   }`}
                 >
                   {li.amount < 0 ? "-" : ""}
@@ -1066,7 +1081,7 @@ function UtilityCard({
       </div>
 
       {/* Share-of-total progress bar */}
-      <div className="px-5 pb-5">
+      <div className="px-4 sm:px-5 pb-4 sm:pb-5">
         <div
           className="h-1.5 rounded-full bg-white/5 overflow-hidden"
           role="progressbar"
@@ -1084,7 +1099,7 @@ function UtilityCard({
           {pct.toFixed(0)}% of total
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -1092,12 +1107,13 @@ function UtilityCard({
 
 const MetersTable = memo(function MetersTable({ meters }: { meters: UtilityBillMeter[] }) {
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden">
-      <div className="px-6 py-4 border-b border-white/10">
-        <h2 className="text-sm font-semibold tracking-wide uppercase text-neutral-300">
+    <div className="glass-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-white/10">
+        <h2 className="text-sm font-medium text-neutral-300">
           Meter readings
         </h2>
       </div>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent border-white/10">
@@ -1150,7 +1166,8 @@ const MetersTable = memo(function MetersTable({ meters }: { meters: UtilityBillM
           ))}
         </TableBody>
       </Table>
-    </Card>
+      </div>
+    </div>
   );
 });
 
@@ -1169,8 +1186,8 @@ function ExtractionBanner({
 }) {
   if (bill.extraction_status === "processing") {
     return (
-      <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 text-neutral-300">
+      <div className="glass-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-3 text-sm text-neutral-300">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Extraction in progress&hellip;
         </div>
@@ -1185,35 +1202,35 @@ function ExtractionBanner({
             Download PDF
           </a>
         )}
-      </Card>
+      </div>
     );
   }
 
   if (bill.extraction_status === "needs_review") {
     return (
-      <Card className="rounded-[20px] border-amber-500/30 bg-amber-500/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-        <div className="flex items-center gap-3 text-amber-300">
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+      <div className="glass-card border-amber/30 bg-amber/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <div className="flex items-start gap-3 text-amber">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden />
           <div>
-            <div className="font-medium">This bill needs review</div>
-            <div className="text-xs text-amber-400/80">
+            <div className="text-sm font-medium">This bill needs review</div>
+            <div className="text-xs text-amber/80">
               Extraction confidence: {bill.extraction_confidence ?? "?"}%.
               Verify amounts and edit if needed.
             </div>
             {bill.extraction_model && (
-              <div className="text-[10px] font-mono text-amber-400/60 mt-0.5">
+              <div className="text-[10px] font-mono text-amber/60 mt-0.5">
                 Model: {bill.extraction_model}
               </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {bill.file_path && (
             <a
               href={billPdfUrl(bill.id)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-amber-200 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm text-amber hover:text-white transition-colors"
             >
               <Download className="h-4 w-4" aria-hidden />
               Download PDF
@@ -1221,11 +1238,10 @@ function ExtractionBanner({
           )}
           {isAdmin && bill.file_path && (
             <Button
-              size="sm"
               variant="outline"
               onClick={onReextract}
               disabled={reextracting}
-              className="rounded-lg border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+              className="rounded-lg border-amber/40 bg-amber/10 text-amber hover:bg-amber/20"
             >
               {reextracting ? (
                 <Loader2
@@ -1239,19 +1255,19 @@ function ExtractionBanner({
             </Button>
           )}
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (bill.extraction_status === "failed") {
     return (
-      <Card className="rounded-[20px] border-red-500/30 bg-red-500/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-        <div className="flex items-center gap-3 text-red-300">
-          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
+      <div className="glass-card border-crimson/30 bg-crimson/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <div className="flex items-start gap-3 text-crimson">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden />
           <div>
-            <div className="font-medium">Extraction failed</div>
+            <div className="text-sm font-medium">Extraction failed</div>
             {bill.extraction_error && (
-              <div className="text-xs text-red-400/80">
+              <div className="text-xs text-crimson/80">
                 {bill.extraction_error}
               </div>
             )}
@@ -1259,11 +1275,10 @@ function ExtractionBanner({
         </div>
         {isAdmin && bill.file_path && (
           <Button
-            size="sm"
             variant="outline"
             onClick={onReextract}
             disabled={reextracting}
-            className="rounded-lg border-red-500/40 bg-red-500/10 text-red-200 hover:bg-red-500/20 shrink-0"
+            className="rounded-lg border-crimson/40 bg-crimson/10 text-crimson hover:bg-crimson/20 shrink-0"
           >
             {reextracting ? (
               <Loader2
@@ -1276,7 +1291,7 @@ function ExtractionBanner({
             Retry
           </Button>
         )}
-      </Card>
+      </div>
     );
   }
 

@@ -33,7 +33,7 @@ const LiveFeed = ({ logs }: LiveFeedProps) => {
         {logs.map((log, i) => (
           <div
             key={i}
-            className={`font-mono text-[11px] leading-5 ${colorize(log)} opacity-70`}
+            className={`font-mono text-[11px] leading-5 break-words ${colorize(log)} opacity-70`}
           >
             {log}
           </div>

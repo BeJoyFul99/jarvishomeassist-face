@@ -330,11 +330,11 @@ const HomeDevicesPage = () => {
       variants={container}
       initial="hidden"
       animate="show"
-      className="p-6 max-w-5xl mx-auto space-y-6"
+      className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6"
     >
       <motion.div
         variants={item}
-        className="flex items-center justify-between"
+        className="flex flex-wrap items-center justify-between gap-3"
       >
         <div>
           <h1 className="text-xl font-semibold text-foreground">Smart Home</h1>
@@ -391,12 +391,12 @@ const HomeDevicesPage = () => {
                   return (
                     <div
                       key={d.id}
-                      className={`glass-card p-4 space-y-3 relative ${isOn ? "border-primary/20 shadow-[0_0_20px_-8px_hsl(var(--primary)/0.15)]" : ""}`}
+                      className={`glass-card p-4 space-y-3 relative ${isOn ? "border-primary/20" : ""}`}
                     >
-                      <span className="absolute top-2 right-2 text-[9px] font-mono uppercase tracking-widest text-amber bg-amber/10 border border-amber/20 px-1.5 py-0.5 rounded-full">
+                      <span className="absolute top-2 right-2 text-[10px] font-mono uppercase tracking-widest text-amber bg-amber/10 border border-amber/20 px-1.5 py-0.5 rounded-full">
                         Sample
                       </span>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between min-h-10">
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-lg ${isOn ? "bg-primary/10" : "bg-secondary/50"}`}>
                             <Lightbulb className={`w-4 h-4 ${isOn ? "text-primary" : "text-muted-foreground"}`} />
@@ -411,7 +411,7 @@ const HomeDevicesPage = () => {
                         <Switch checked={isOn} disabled />
                       </div>
                       {isOn && brightness != null && (
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-h-10">
                           <Sun className="w-3 h-3 text-muted-foreground shrink-0" />
                           <Slider value={[brightness]} min={10} max={100} step={1} disabled className="flex-1" />
                           <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{brightness}%</span>
@@ -449,10 +449,10 @@ const HomeDevicesPage = () => {
                     whileHover={!isExpanded ? { scale: 1.02, y: -2 } : undefined}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                     className={`glass-card p-4 space-y-3 transition-all ${
-                      isOn ? "border-primary/20 shadow-[0_0_20px_-8px_hsl(var(--primary)/0.15)]" : ""
+                      isOn ? "border-primary/20" : ""
                     } ${isExpanded ? "sm:col-span-2 lg:col-span-3" : ""}`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between min-h-10">
                       <div className="flex items-center gap-3">
                         <motion.div
                           animate={isOn ? { scale: [1, 1.1, 1] } : { scale: 1 }}
@@ -490,7 +490,7 @@ const HomeDevicesPage = () => {
                           <motion.button
                             whileTap={{ scale: 0.9 }}
                             onClick={() => setExpandedId(isExpanded ? null : device.id)}
-                            className={`p-1.5 rounded-lg transition-colors ${
+                            className={`p-2 rounded-lg transition-colors ${
                               isExpanded
                                 ? "bg-primary/10 text-primary"
                                 : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -534,7 +534,7 @@ const HomeDevicesPage = () => {
                           exit={{ opacity: 0, height: 0 }}
                           transition={{ type: "spring", stiffness: 300, damping: 25 }}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-h-10">
                             <Sun className="w-3 h-3 text-muted-foreground shrink-0" />
                             <Slider
                               value={[brightness]}
@@ -655,7 +655,7 @@ const HomeDevicesPage = () => {
                                           whileTap={{ scale: 0.9 }}
                                           onClick={() => setRGB(device, c.r, c.g, c.b)}
                                           title={c.name}
-                                          className={`w-9 h-9 rounded-full transition-all ${
+                                          className={`w-10 h-10 rounded-full transition-all ${
                                             isActive
                                               ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                                               : "hover:ring-1 hover:ring-white/20"

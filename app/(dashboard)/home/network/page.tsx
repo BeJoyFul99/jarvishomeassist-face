@@ -7,12 +7,6 @@ import {
   Wifi,
   WifiOff,
   Globe,
-  Smartphone,
-  Laptop,
-  Tv,
-  Monitor,
-  HardDrive,
-  CheckCircle2,
   ArrowDown,
   ArrowUp,
   QrCode,
@@ -42,15 +36,6 @@ interface WifiNetwork {
   is_guest: boolean;
   enabled: boolean;
 }
-
-const CONNECTED_DEVICES = [
-  { name: "Mom's iPhone", icon: Smartphone, type: "Phone", ip: "192.168.1.101" },
-  { name: "Dad's Laptop", icon: Laptop, type: "Laptop", ip: "192.168.1.102" },
-  { name: "Living Room TV", icon: Tv, type: "Smart TV", ip: "192.168.1.103" },
-  { name: "Office Desktop", icon: Monitor, type: "Desktop", ip: "192.168.1.104" },
-  { name: "NAS Storage", icon: HardDrive, type: "Storage", ip: "192.168.1.105" },
-  { name: "Guest Phone", icon: Smartphone, type: "Phone", ip: "192.168.1.106" },
-];
 
 const wifiQrString = (ssid: string, password: string, security: string) =>
   `WIFI:T:${security};S:${ssid};P:${password};;`;
@@ -106,17 +91,17 @@ const WifiCard = ({
 
   return (
     <motion.div layout className="glass-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg bg-secondary ${color}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`p-2 rounded-lg bg-secondary shrink-0 ${color}`}>
             <IconComponent className="w-4 h-4" />
           </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">{network.ssid}</p>
-            <p className="text-[11px] text-muted-foreground">{network.description}</p>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">{network.ssid}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{network.description}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-[10px] font-mono text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">
             {network.band}
           </span>
@@ -128,7 +113,7 @@ const WifiCard = ({
 
       {/* Password row */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-white/[0.04]">
+        <div className="flex-1 flex items-center gap-2 px-3 py-2 min-h-10 rounded-lg bg-secondary/50 border border-white/[0.04]">
           <span className="text-xs font-mono text-muted-foreground flex-1">
             {showPassword ? password : "••••••••••••"}
           </span>
@@ -148,7 +133,7 @@ const WifiCard = ({
           whileTap={{ scale: 0.9 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
           onClick={copyPassword}
-          className={`p-2 rounded-lg transition-colors ${canManage ? "bg-secondary hover:bg-secondary/80" : "bg-secondary/50 opacity-50 cursor-not-allowed"}`}
+          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${canManage ? "bg-secondary hover:bg-secondary/80" : "bg-secondary/50 opacity-50 cursor-not-allowed"}`}
         >
           <AnimatePresence mode="wait">
             {copied ? (
@@ -170,7 +155,7 @@ const WifiCard = ({
             if (!canManage) return;
             setShowQr(!showQr);
           }}
-          className={`p-2 rounded-lg transition-colors ${showQr ? "bg-primary/10 text-primary" : "text-muted-foreground"} ${canManage ? "bg-secondary hover:bg-secondary/80" : "bg-secondary/50 opacity-50 cursor-not-allowed"}`}
+          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${showQr ? "bg-primary/10 text-primary" : "text-muted-foreground"} ${canManage ? "bg-secondary hover:bg-secondary/80" : "bg-secondary/50 opacity-50 cursor-not-allowed"}`}
         >
           <QrCode className="w-4 h-4" />
         </motion.button>
@@ -237,7 +222,7 @@ const HomeNetworkPage = () => {
       variants={container}
       initial="hidden"
       animate="show"
-      className="p-6 max-w-5xl mx-auto space-y-6"
+      className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6"
     >
       <motion.div variants={item}>
         <h1 className="text-xl font-semibold text-foreground">
@@ -273,7 +258,7 @@ const HomeNetworkPage = () => {
           </p>
         </div>
         <div
-          className={`px-3 py-1 rounded-full text-xs font-medium ${isOnline ? "bg-emerald/10 text-emerald" : "bg-crimson/10 text-crimson"}`}
+          className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 ${isOnline ? "bg-emerald/10 text-emerald" : "bg-crimson/10 text-crimson"}`}
         >
           {isOnline ? "Online" : "Offline"}
         </div>
@@ -342,37 +327,6 @@ const HomeNetworkPage = () => {
         )}
       </motion.div>
 
-      {/* Connected Devices */}
-      <motion.div variants={item}>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
-          Connected Devices ({CONNECTED_DEVICES.length})
-        </h2>
-        <div className="space-y-2">
-          {CONNECTED_DEVICES.map((device) => (
-            <motion.div
-              key={device.ip}
-              variants={item}
-              className="glass-card p-3 flex items-center gap-3"
-            >
-              <div className="p-2 rounded-lg bg-secondary">
-                <device.icon className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  {device.name}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {device.type}
-                </p>
-              </div>
-              <span className="text-[11px] font-mono text-muted-foreground hidden sm:block">
-                {device.ip}
-              </span>
-              <CheckCircle2 className="w-4 h-4 text-emerald shrink-0" />
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
     </motion.div>
   );
 };

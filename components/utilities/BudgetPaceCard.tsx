@@ -4,7 +4,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles, TrendingUp, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useBudgets, usePace } from "@/lib/bills";
 import { BudgetPaceSkeleton } from "@/components/utilities/Skeletons";
@@ -69,7 +68,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
   // Compact empty state: no baseline, no budget, no projection to show
   if (baseline === "unknown" && budgetAmount === 0 && projected === 0) {
     return (
-      <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6">
+      <div className="glass-card p-5">
         <div className="flex flex-col items-center gap-3 text-center py-2">
           <Sparkles className="h-6 w-6 text-neutral-500" aria-hidden />
           <p className="text-sm text-neutral-400">
@@ -80,30 +79,29 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
           {isAdmin && (
             <Button
               onClick={onSetBudget}
-              size="sm"
               className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Set budget
             </Button>
           )}
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6">
-      <div className="grid gap-6 sm:grid-cols-2">
+    <div className="glass-card p-5">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {/* Left column */}
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+          <div className="text-sm font-medium text-muted-foreground">
             Budget — {MONTH_NAMES[month - 1]} {year}
           </div>
           {budgetAmount > 0 ? (
             <>
-              <div className="mt-1 text-[40px] leading-none font-extrabold tabular-nums">
+              <div className="mt-1 text-3xl sm:text-4xl leading-none font-bold tabular-nums">
                 {money(budgetAmount, currency)}
-                <span className="text-lg font-normal text-neutral-400"> / month</span>
+                <span className="text-base font-normal text-neutral-400"> / month</span>
               </div>
               <div className="mt-1 text-sm text-neutral-400">Alerts at {threshold}%</div>
             </>
@@ -113,7 +111,6 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
               {isAdmin && (
                 <Button
                   onClick={onSetBudget}
-                  size="sm"
                   className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Set budget
@@ -125,12 +122,12 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
 
         {/* Right column */}
         <div className="flex flex-col sm:items-end gap-2">
-          <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+          <div className="text-sm font-medium text-muted-foreground">
             Projected this month
           </div>
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-neutral-300" aria-hidden />
-            <span className="text-[28px] leading-none font-extrabold tabular-nums">
+            <span className="text-2xl sm:text-3xl leading-none font-bold tabular-nums">
               {money(projected, currency)}
             </span>
           </div>
@@ -142,7 +139,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
             {baselineLabel[baseline]}
           </Badge>
           {pace?.projection?.reference_note && (
-            <div className="text-[11px] text-neutral-500 max-w-xs sm:text-right">
+            <div className="text-xs text-neutral-500 max-w-xs sm:text-right">
               {pace.projection.reference_note}
             </div>
           )}
@@ -214,7 +211,6 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
           {isAdmin && (
             <Button
               onClick={onSetBudget}
-              size="sm"
               className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
             >
               Set budget
@@ -222,6 +218,6 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
           )}
         </div>
       )}
-    </Card>
+    </div>
   );
 }

@@ -12,7 +12,7 @@ import AgentFeed from "@/components/dashboard/AgentFeed";
 import ClusterMap from "@/components/dashboard/ClusterMap";
 import LiveFeed from "@/components/dashboard/LiveFeed";
 import { Switch } from "@/components/ui/switch";
-import { Wifi, Thermometer, Brain, Cpu, Laptop, AlertTriangle } from "lucide-react";
+import { Wifi, Thermometer, Brain, Laptop, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SystemStatus } from "@/hooks/useSystemStatus";
 
@@ -39,15 +39,15 @@ export default function DashboardPage() {
   if (isInitialLoad) {
     return (
       <div className="bg-background max-w-7xl mx-auto space-y-4">
-        <Skeleton className="h-23 w-full rounded-xl glass-card opacity-50" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Skeleton className="h-70 w-full rounded-xl glass-card opacity-50" />
-          <Skeleton className="h-70 w-full rounded-xl glass-card opacity-50" />
-          <Skeleton className="h-70 w-full rounded-xl glass-card opacity-50" />
+        <Skeleton className="h-24 w-full rounded-xl glass-card opacity-50" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-72 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-72 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-72 w-full rounded-xl glass-card opacity-50 md:col-span-2 lg:col-span-1" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="h-105 lg:col-span-2 w-full rounded-xl glass-card opacity-50" />
-          <Skeleton className="h-105 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-96 lg:col-span-2 w-full rounded-xl glass-card opacity-50" />
+          <Skeleton className="h-96 w-full rounded-xl glass-card opacity-50" />
         </div>
       </div>
     );
@@ -104,14 +104,14 @@ export default function DashboardPage() {
           {/* ✅ Node Identity Banner — matches reference design */}
           <motion.div
             variants={item}
-            className="glass-card p-4 flex items-center justify-between"
+            className="glass-card p-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
           >
-            <div className="flex items-center gap-4">
-              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
                 <Laptop className="w-5 h-5 text-primary" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-lg font-semibold text-foreground">
                     {activeNode.name}
                   </h2>
@@ -119,7 +119,7 @@ export default function DashboardPage() {
                     ONLINE
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground font-mono">
+                <p className="text-sm text-muted-foreground font-mono truncate">
                   {activeNode.cpu.model} ·{" "}
                   <span className="text-primary">{activeNode.tailscaleIp}</span>
                 </p>
@@ -127,9 +127,9 @@ export default function DashboardPage() {
             </div>
 
             {/* ✅ Right side: WiFi + Temp stacked — matches reference */}
-            <div className="hidden md:flex items-center gap-8">
-              <div className="text-right">
-                <div className="flex items-center gap-1.5 justify-end">
+            <div className="flex items-center justify-between gap-6 sm:justify-end sm:gap-8">
+              <div className="sm:text-right">
+                <div className="flex items-center gap-1.5 sm:justify-end">
                   <Wifi className={`w-3.5 h-3.5 ${signal.color}`} />
                   <span
                     className={`font-mono text-sm font-medium ${signal.color}`}
@@ -141,9 +141,9 @@ export default function DashboardPage() {
                   {signal.label}
                 </span>
               </div>
-              <div className="h-8 w-px bg-border" />
-              <div className="text-right">
-                <div className="flex items-center gap-1.5 justify-end">
+              <div className="hidden sm:block h-8 w-px bg-border" />
+              <div className="sm:text-right">
+                <div className="flex items-center gap-1.5 sm:justify-end">
                   <Thermometer
                     className={`w-3.5 h-3.5 ${thermalDanger ? "text-crimson" : "text-amber"}`}
                   />
@@ -165,7 +165,7 @@ export default function DashboardPage() {
           {/* Vitals Grid */}
           <motion.div
             variants={item}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
             <CpuMatrix
               cpuUsage={status.cpu_usage}
@@ -177,12 +177,14 @@ export default function DashboardPage() {
               wiredGb={status.ram_wired_gb}
               totalGb={activeNode.ram.total}
             />
-            <StorageHealth
-              systemGb={status.storage_system_gb}
-              aiGb={status.storage_ai_gb}
-              availableGb={status.storage_available_gb}
-              totalGb={activeNode.storage.total}
-            />
+            <div className="md:col-span-2 lg:col-span-1">
+              <StorageHealth
+                systemGb={status.storage_system_gb}
+                aiGb={status.storage_ai_gb}
+                availableGb={status.storage_available_gb}
+                totalGb={activeNode.storage.total}
+              />
+            </div>
           </motion.div>
 
           {/* Inference Engine + Model Library */}
@@ -236,7 +238,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <button
-                      className={`ml-2 px-2.5 py-1 rounded-md text-[10px] font-mono transition-colors ${
+                      className={`ml-2 min-h-10 px-3 rounded-md text-[10px] font-mono transition-colors ${
                         activeNode.ai.model === model.name
                           ? "bg-magenta/10 text-magenta border border-magenta/20"
                           : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
@@ -258,9 +260,9 @@ export default function DashboardPage() {
             <div className="lg:col-span-2">
               <NetworkSecurity status={status} />
             </div>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
               <ClusterMap />
-              <div className="glass-card-hover p-4 flex items-center justify-between">
+              <div className="glass-card-hover p-4 flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-medium text-foreground">
                     Load Balancer

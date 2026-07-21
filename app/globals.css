@@ -99,23 +99,23 @@
 @layer base {
   :root {
     --background: 0 0% 2%;
-    --foreground: 0 0% 90%;
-    --card: 0 0% 4.5%;
-    --card-foreground: 0 0% 90%;
+    --foreground: 0 0% 92%;
+    --card: 0 0% 5.5%;
+    --card-foreground: 0 0% 92%;
     --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 90%;
+    --popover-foreground: 0 0% 92%;
     --primary: 186 100% 50%;
     --primary-foreground: 0 0% 2%;
     --secondary: 0 0% 8%;
     --secondary-foreground: 0 0% 80%;
     --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 45%;
+    --muted-foreground: 0 0% 58%;
     --accent: 0 0% 10%;
     --accent-foreground: 0 0% 90%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 10%;
-    --input: 0 0% 10%;
+    --border: 0 0% 13%;
+    --input: 0 0% 13%;
     --ring: 186 100% 50%;
     --radius: 0.75rem;
     --cyan: 186 100% 50%;
@@ -126,7 +126,7 @@
     --amber: 38 92% 50%;
     --crimson: 0 72% 51%;
     --glass-bg: 0 0% 5%;
-    --glass-border: 0 0% 12%;
+    --glass-border: 0 0% 15%;
     --sidebar-background: 0 0% 3%;
     --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 186 100% 50%;
@@ -147,15 +147,15 @@
 
 @layer components {
   .glass-card {
-    background-color: hsl(var(--card) / 0.6);
-    backdrop-filter: blur(24px);
+    background-color: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(12px);
     border: 1px solid hsl(var(--glass-border));
     border-radius: var(--radius-lg);
   }
 
   .glass-card-hover {
-    background-color: hsl(var(--card) / 0.6);
-    backdrop-filter: blur(24px);
+    background-color: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(12px);
     border: 1px solid hsl(var(--glass-border));
     border-radius: var(--radius-lg);
     transition: all 0.3s ease;

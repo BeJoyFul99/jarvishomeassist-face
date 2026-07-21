@@ -142,7 +142,7 @@ export default function UtilitiesPage() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="min-h-screen bg-background text-foreground px-6 md:px-8 py-8 space-y-6"
+      className="min-h-screen bg-background text-foreground px-4 py-6 sm:px-6 md:px-8 md:py-8 space-y-6"
     >
       {/* Header */}
       <motion.header
@@ -154,7 +154,7 @@ export default function UtilitiesPage() {
             <Receipt className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight">Utilities</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Utilities</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Bills, meters, budgets, and AI-powered insights.
             </p>
@@ -171,7 +171,7 @@ export default function UtilitiesPage() {
           />
 
           {isAdmin && (
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 onClick={() => setManualBillOpen(true)}
                 disabled={currentPropertyId === null}
@@ -183,7 +183,7 @@ export default function UtilitiesPage() {
               <Button
                 onClick={() => setUploadOpen(true)}
                 disabled={currentPropertyId === null}
-                className="w-full rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 sm:w-auto"
+                className="w-full rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
               >
                 <UploadCloud className="h-3.5 w-3.5 mr-2" />
                 Upload Bill
@@ -196,15 +196,15 @@ export default function UtilitiesPage() {
       {/* Error banner if properties query fails (likely backend not reachable) */}
       {propsError && (
         <motion.div variants={item}>
-          <Card className="rounded-[20px] border-red-500/20 bg-red-500/5 p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 text-red-300">
-              <FileWarning className="h-4 w-4" />
+          <Card className="glass-card border-crimson/20 bg-crimson/5 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 text-crimson">
+              <FileWarning className="h-4 w-4 shrink-0" />
               <div>
-                <div className="font-medium">Couldn&apos;t load properties</div>
-                <div className="text-xs text-red-400/80">Check that the backend is reachable.</div>
+                <div className="text-sm font-medium">Couldn&apos;t load properties</div>
+                <div className="text-xs text-crimson/70">Check that the backend is reachable.</div>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => refetchProps()} className="rounded-lg">
+            <Button variant="outline" onClick={() => refetchProps()} className="rounded-lg w-full sm:w-auto">
               Retry
             </Button>
           </Card>
@@ -212,7 +212,7 @@ export default function UtilitiesPage() {
       )}
 
       {/* Stat cards — always visible */}
-      <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <motion.div variants={item} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={HomeIcon}
           color="text-cyan"
@@ -264,14 +264,14 @@ export default function UtilitiesPage() {
               key={t}
               onClick={() => setTab(t)}
               className={cn(
-                "relative flex-1 md:flex-initial px-3 md:px-5 py-2 rounded-lg text-xs font-semibold transition-colors z-10 capitalize whitespace-nowrap",
+                "relative flex-1 md:flex-initial px-3 md:px-5 py-2.5 rounded-lg text-xs font-semibold transition-colors z-10 capitalize whitespace-nowrap",
                 tab === t ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {tab === t && (
                 <motion.div
                   layoutId="activeUtilityTab"
-                  className="absolute inset-0 bg-primary shadow-[0_0_15px_-5px_hsl(var(--primary)/0.4)] rounded-lg"
+                  className="absolute inset-0 bg-primary rounded-lg"
                   transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
               )}
@@ -313,7 +313,7 @@ export default function UtilitiesPage() {
                 <EmptyBills isAdmin={isAdmin} onUpload={() => setUploadOpen(true)} />
               )}
               {billsError && !initialLoading && (
-                <Card className="rounded-[20px] border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-300">
+                <Card className="glass-card border-amber/20 bg-amber/5 p-4 text-sm text-amber">
                   Couldn&apos;t load bills for this property.
                 </Card>
               )}
@@ -385,7 +385,7 @@ export default function UtilitiesPage() {
       <Dialog open={deletePropertyOpen} onOpenChange={setDeletePropertyOpen}>
         <DialogContent className="rounded-[20px] border-white/10 bg-neutral-950 text-white max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-lg font-extrabold tracking-tight">
+            <DialogTitle className="text-lg font-semibold tracking-tight">
               Delete property?
             </DialogTitle>
             <DialogDescription className="text-neutral-400">
@@ -560,25 +560,27 @@ function StatCard({
 
 function BillsTable({ bills }: { bills: UtilityBill[] }) {
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent border-white/10">
-            <TableHead className="text-muted-foreground font-medium">Statement</TableHead>
-            <TableHead className="text-muted-foreground font-medium">Due</TableHead>
-            <TableHead className="text-muted-foreground font-medium">Status</TableHead>
-            <TableHead className="text-muted-foreground font-medium">Extraction</TableHead>
-            <TableHead className="text-right text-muted-foreground font-medium">Total</TableHead>
-            <TableHead className="w-10 sr-only">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {bills.map((b) => (
-            <BillRow key={b.id} bill={b} />
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
+    <div className="glass-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent border-white/10">
+              <TableHead className="text-muted-foreground font-medium">Statement</TableHead>
+              <TableHead className="text-muted-foreground font-medium">Due</TableHead>
+              <TableHead className="text-muted-foreground font-medium">Status</TableHead>
+              <TableHead className="text-muted-foreground font-medium">Extraction</TableHead>
+              <TableHead className="text-right text-muted-foreground font-medium">Total</TableHead>
+              <TableHead className="w-10 sr-only">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {bills.map((b) => (
+              <BillRow key={b.id} bill={b} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }
 
@@ -725,7 +727,7 @@ function BillRow({ bill }: { bill: UtilityBill }) {
                   <button
                     type="button"
                     aria-label="Bill actions"
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreHorizontal className="h-4 w-4" />
@@ -749,7 +751,7 @@ function BillRow({ bill }: { bill: UtilityBill }) {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="rounded-[20px] border-white/10 bg-neutral-950 text-white max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-lg font-extrabold tracking-tight">
+            <DialogTitle className="text-lg font-semibold tracking-tight">
               Delete this bill?
             </DialogTitle>
             <DialogDescription className="text-neutral-400">
@@ -831,14 +833,14 @@ function ExtractionBadge({ status }: { status: ExtractionStatus }) {
 
 function EmptyProperties({ isAdmin, onAdd }: { isAdmin: boolean; onAdd: () => void }) {
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-8 md:p-10 overflow-hidden">
-      <div className="grid gap-8 md:grid-cols-[1fr,1.3fr] md:items-center">
+    <div className="glass-card p-5 sm:p-8 overflow-hidden">
+      <div className="grid gap-6 md:gap-8 md:grid-cols-[1fr,1.3fr] md:items-center">
         <div className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 bg-white/5 border border-white/10 text-xs text-neutral-300">
             <Receipt className="h-3.5 w-3.5" />
             Getting started
           </div>
-          <h2 className="text-2xl font-extrabold tracking-tight">Track your utility bills</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Track your utility bills</h2>
           <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
             Add a property to start uploading PowerStream PDFs. Bills are extracted
             automatically — you&apos;ll see the breakdown by utility, budget pace, and
@@ -858,20 +860,20 @@ function EmptyProperties({ isAdmin, onAdd }: { isAdmin: boolean; onAdd: () => vo
         </div>
         <GhostBillPreview />
       </div>
-    </Card>
+    </div>
   );
 }
 
 function EmptyBills({ isAdmin, onUpload }: { isAdmin: boolean; onUpload: () => void }) {
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-8 md:p-10 overflow-hidden">
-      <div className="grid gap-8 md:grid-cols-[1fr,1.3fr] md:items-center">
+    <div className="glass-card p-5 sm:p-8 overflow-hidden">
+      <div className="grid gap-6 md:gap-8 md:grid-cols-[1fr,1.3fr] md:items-center">
         <div className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 bg-white/5 border border-white/10 text-xs text-neutral-300">
             <Receipt className="h-3.5 w-3.5" />
             No bills yet
           </div>
-          <h2 className="text-2xl font-extrabold tracking-tight">Upload your first PowerStream bill</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Upload your first PowerStream bill</h2>
           <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
             Drag a PDF into the upload dialog. Our parser extracts the total, breakdown by utility,
             meter readings, and due date. You can review and correct anything before it lands in your history.
@@ -891,27 +893,27 @@ function EmptyBills({ isAdmin, onUpload }: { isAdmin: boolean; onUpload: () => v
         </div>
         <GhostBillPreview />
       </div>
-    </Card>
+    </div>
   );
 }
 
 function MetersSummary({ bills }: { bills: UtilityBill[] }) {
   if (bills.length === 0) {
     return (
-      <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-8 text-center">
+      <div className="glass-card p-5 sm:p-8 text-center">
         <Gauge className="mx-auto h-10 w-10 text-muted-foreground" />
         <h3 className="mt-3 text-lg font-semibold">No meter readings yet</h3>
         <p className="mt-1 text-sm text-muted-foreground max-w-sm mx-auto">
           Meter readings appear here once a bill has been uploaded and extracted.
         </p>
-      </Card>
+      </div>
     );
   }
   return (
-    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6">
+    <div className="glass-card p-5">
       <div className="flex items-center gap-2 text-primary">
         <Gauge className="h-4 w-4" />
-        <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
+        <span className="text-sm font-medium text-muted-foreground">
           Recent readings
         </span>
       </div>
@@ -936,6 +938,6 @@ function MetersSummary({ bills }: { bills: UtilityBill[] }) {
           </Link>
         ))}
       </div>
-    </Card>
+    </div>
   );
 }

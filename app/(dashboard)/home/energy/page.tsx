@@ -136,7 +136,7 @@ export default function EnergyPage() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="p-6 max-w-5xl mx-auto space-y-6"
+      className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6"
     >
       {/* Header */}
       <motion.div variants={item}>
@@ -149,7 +149,7 @@ export default function EnergyPage() {
       </motion.div>
 
       {/* Summary Cards */}
-      <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="glass-card p-4 space-y-1">
           <div className="flex items-center gap-2 text-amber">
             <Zap className="w-4 h-4" />
@@ -208,7 +208,8 @@ export default function EnergyPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-12 gap-1">
+        <div className="overflow-x-auto">
+          <div className="grid grid-cols-12 gap-1 min-w-[480px]">
           {Array.from({ length: 24 }, (_, i) => {
             const reading = todayReadings.find(
               (r) => new Date(r.timestamp).getHours() === i
@@ -237,7 +238,7 @@ export default function EnergyPage() {
                   />
                 </div>
                 {/* Label */}
-                <div className={`text-center text-[8px] font-mono mt-0.5 ${
+                <div className={`text-center text-[10px] font-mono mt-0.5 ${
                   isCurrent ? "text-primary font-bold" : "text-muted-foreground"
                 }`}>
                   {i % 3 === 0 ? `${String(i).padStart(2, "0")}` : ""}
@@ -250,21 +251,22 @@ export default function EnergyPage() {
               </motion.div>
             );
           })}
+          </div>
         </div>
 
         {/* Legend */}
         <div className="flex items-center gap-2 justify-center">
-          <span className="text-[9px] text-muted-foreground">Low</span>
+          <span className="text-[10px] text-muted-foreground">Low</span>
           {[80, 200, 350, 500, 700].map((v) => (
             <div key={v} className="w-3 h-3 rounded-sm" style={{ backgroundColor: getHeatColor(v) }} />
           ))}
-          <span className="text-[9px] text-muted-foreground">High</span>
+          <span className="text-[10px] text-muted-foreground">High</span>
         </div>
       </motion.div>
 
       {/* Period Breakdown */}
       <motion.div variants={item} className="glass-card p-5 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-medium text-foreground flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-muted-foreground" /> Usage Breakdown
           </h2>
@@ -273,7 +275,7 @@ export default function EnergyPage() {
               <button
                 key={p}
                 onClick={() => setActivePeriod(p)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   activePeriod === p
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -294,7 +296,7 @@ export default function EnergyPage() {
             transition={{ duration: 0.2 }}
           >
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
               <div className="text-center p-3 rounded-lg bg-secondary/30">
                 <p className="text-lg font-semibold text-foreground font-mono">{activeSummary?.total_kwh?.toFixed(1) || "0"}</p>
                 <p className="text-[10px] text-muted-foreground">kWh used</p>
@@ -324,8 +326,8 @@ export default function EnergyPage() {
                         day: "numeric",
                       });
                       return (
-                        <div key={day.date} className="flex items-center gap-3">
-                          <span className="text-[10px] font-mono text-muted-foreground w-24 shrink-0">{dayLabel}</span>
+                        <div key={day.date} className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-muted-foreground w-20 shrink-0">{dayLabel}</span>
                           <div className="flex-1 h-5 bg-secondary/30 rounded-sm overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
@@ -432,7 +434,7 @@ export default function EnergyPage() {
                         }}
                       >
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-[8px] font-mono text-foreground truncate px-1">{rate.name}</span>
+                          <span className="text-[10px] font-mono text-foreground truncate px-1">{rate.name}</span>
                         </div>
                       </div>
                     );
@@ -449,7 +451,7 @@ export default function EnergyPage() {
                     return (
                       <div
                         key={rate.id}
-                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${
+                        className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 rounded-lg text-xs ${
                           isCurrentRate ? "bg-primary/10 border border-primary/20" : "bg-secondary/30"
                         }`}
                       >
@@ -463,7 +465,7 @@ export default function EnergyPage() {
                           )}
                           <span className="text-foreground font-medium">{rate.name}</span>
                           {isCurrentRate && (
-                            <span className="text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">NOW</span>
+                            <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">NOW</span>
                           )}
                         </div>
                         <div className="text-right">

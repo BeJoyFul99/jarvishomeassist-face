@@ -41,20 +41,15 @@ const HomeMediaPage = () => {
       variants={container}
       initial="hidden"
       animate="show"
-      className="p-6 max-w-5xl mx-auto space-y-6"
+      className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6"
     >
-      <motion.div
-        variants={item}
-        className="flex items-center justify-between"
-      >
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">
-            Media & Storage
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Your shared family files
-          </p>
-        </div>
+      <motion.div variants={item}>
+        <h1 className="text-xl font-semibold text-foreground">
+          Media & Storage
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Your shared family files
+        </p>
       </motion.div>
 
       {/* Storage Overview */}
@@ -81,7 +76,7 @@ const HomeMediaPage = () => {
         <h2 className="text-sm font-medium text-muted-foreground mb-3">
           Categories
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {MEDIA_CATEGORIES.map((cat) => (
             <motion.button
               key={cat.name}
@@ -110,9 +105,9 @@ const HomeMediaPage = () => {
           <Clock className="w-4 h-4" /> Recent Activity
         </h2>
         <div className="space-y-2">
-          {RECENT_FILES.map((file, i) => (
+          {RECENT_FILES.map((file) => (
             <motion.div
-              key={i}
+              key={file.name}
               variants={item}
               className="glass-card p-3 flex items-center gap-3 hover:bg-secondary/30 transition-colors cursor-pointer"
             >
