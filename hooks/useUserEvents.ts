@@ -33,7 +33,7 @@ type RefreshCallback = () => void;
  * - Calls onRefresh when the user list should be refreshed
  */
 export function useUserEvents(onRefresh?: RefreshCallback) {
-  const { user, logout, isAuthenticated } = useAuthStore();
+  const { user, logout, isAuthenticated, refresh } = useAuthStore();
   const router = useRouter();
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
@@ -73,10 +73,18 @@ export function useUserEvents(onRefresh?: RefreshCallback) {
         return;
       }
 
-      // If current user's permissions were updated, notify them
+      // If current user's permissions were updated, refresh the session so the
+      // new role/perms (JWT + store) apply immediately — no re-login needed.
       if (isMe && event.type === "user:updated") {
-        toast.info("Your permissions have been updated. Please log in again for changes to take effect.", {
-          duration: 6000,
+        refresh().then((ok) => {
+          if (ok) {
+            toast.info("Your permissions have been updated.", { duration: 5000 });
+          } else {
+            toast.info(
+              "Your permissions have been updated. Please log in again for changes to take effect.",
+              { duration: 6000 },
+            );
+          }
         });
       }
 
@@ -91,5 +99,5 @@ export function useUserEvents(onRefresh?: RefreshCallback) {
     return () => {
       unsubscribe();
     };
-  }, [isAuthenticated, user, handleForceLogout]);
+  }, [isAuthenticated, user, handleForceLogout, refresh]);
 }
