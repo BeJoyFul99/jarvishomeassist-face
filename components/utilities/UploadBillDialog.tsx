@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "sonner";
 import { useBillExtraction } from "@/hooks/useBillExtraction";
 import { useUploadBill } from "@/lib/bills";
 
@@ -40,7 +40,6 @@ export function UploadBillDialog({
 }: Props) {
   const router = useRouter();
   const reduced = useReducedMotion();
-  const { toast } = useToast();
   const upload = useUploadBill();
 
   const [phase, setPhase] = useState<Phase>({ kind: "pick" });
@@ -78,13 +77,12 @@ export function UploadBillDialog({
   const handleClose = useCallback(() => {
     if (phase.kind === "extracting") {
       onBackgroundExtraction?.(phase.billId);
-      toast({
-        title: "Extraction in progress…",
+      toast("Extraction in progress…", {
         description: "We'll notify you when it's ready.",
       });
     }
     onOpenChange(false);
-  }, [phase, onBackgroundExtraction, onOpenChange, toast]);
+  }, [phase, onBackgroundExtraction, onOpenChange]);
 
   const onFiles = useCallback((fl: FileList | null) => {
     if (!fl || fl.length === 0) return;

@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "sonner";
 import { useBudgets, useUpsertBudget } from "@/lib/bills";
 
 interface Props {
@@ -29,7 +29,6 @@ const MONTH_NAMES = [
 
 export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
   const upsert = useUpsertBudget();
-  const { toast } = useToast();
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
@@ -65,16 +64,13 @@ export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
         alert_threshold_pct: threshold,
         currency: currency || undefined,
       });
-      toast({
-        title: "Budget saved",
+      toast.success("Budget saved", {
         description: `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`,
       });
       onOpenChange(false);
     } catch (e) {
-      toast({
-        title: "Couldn't save budget",
+      toast.error("Couldn't save budget", {
         description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
       });
     }
   }

@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "sonner";
 import { useMarkPaid } from "@/lib/bills";
 
 interface Props {
@@ -35,7 +35,6 @@ export function MarkPaidDialog({ open, onOpenChange, billId, totalAmount }: Prop
   const [amount, setAmount] = useState<number>(totalAmount);
   const [paidDate, setPaidDate] = useState<string>(todayIso());
   const mp = useMarkPaid();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
@@ -47,13 +46,13 @@ export function MarkPaidDialog({ open, onOpenChange, billId, totalAmount }: Prop
   async function submit() {
     try {
       await mp.mutateAsync({ id: billId, paid_amount: amount, paid_date: paidDate });
-      toast({ title: "Marked paid", description: `Recorded $${amount.toFixed(2)} on ${paidDate}.` });
+      toast.success("Marked paid", {
+        description: `Recorded $${amount.toFixed(2)} on ${paidDate}.`,
+      });
       onOpenChange(false);
     } catch (e) {
-      toast({
-        title: "Couldn't record payment",
+      toast.error("Couldn't record payment", {
         description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
       });
     }
   }

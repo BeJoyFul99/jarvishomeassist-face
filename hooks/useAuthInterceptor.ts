@@ -2,14 +2,20 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { setupFetchInterceptor } from "@/lib/authFetch";
 
 /**
- * Keep session fresh when user returns to the tab.
- * HttpOnly cookies already carry auth on each request.
- * This hook only does proactive refresh after inactivity.
+ * Keep session fresh when user returns to the tab,
+ * and intercept all fetch calls to refresh expired tokens.
+ * HttpOnly cookies carry auth on each request.
  */
 let lastRefreshAt = Date.now();
 const REFRESH_INTERVAL_MS = 12 * 60 * 1000;
+
+// Setup the global fetch interceptor to handle 401s immediately when module loads on client
+if (typeof window !== "undefined") {
+  setupFetchInterceptor();
+}
 
 export function useAuthInterceptor() {
   useEffect(() => {
@@ -37,5 +43,3 @@ export function useAuthInterceptor() {
   }, []);
 }
 
-// Intentionally no fetch monkey-patching.
-// Cookie auth keeps the network layer clean.

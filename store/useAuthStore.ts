@@ -80,7 +80,10 @@ export const useAuthStore = create<AuthState>()(
         const { user } = get();
         if (!user) return false;
         if (user.role === "administrator") return true;
+        // Only guests have time-bounded access; a stray permExpiresAt on a
+        // family_member must not lock them out of their assigned perms.
         if (
+          user.role === "guest" &&
           user.permExpiresAt &&
           new Date(user.permExpiresAt) < new Date()
         ) {

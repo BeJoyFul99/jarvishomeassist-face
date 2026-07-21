@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useChatStore, type ChatMessage } from "@/store/useChatStore";
 import { chatSocket, type ChatWSMessage } from "@/lib/chatSocket";
-import { toast } from "@/hooks/useToast";
+import { toast } from "sonner";
 
 /**
  * Connects the shared chat WebSocket and routes incoming events
@@ -59,10 +59,7 @@ export function useChatSocket() {
                 : msg.content.length > 60
                   ? msg.content.slice(0, 60) + "..."
                   : msg.content;
-            toast({
-              title: msg.sender.display_name,
-              description: preview,
-            });
+            toast(msg.sender.display_name, { description: preview });
           }
 
           // If this room was streaming, clear it (the final message has arrived)

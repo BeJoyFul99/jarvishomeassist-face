@@ -24,13 +24,13 @@ export interface ChatWSMessage {
  * (not through Next.js API route proxy), so we only need the origin (host).
  */
 function deriveWsUrl(): string {
-  const raw =
-    process.env.NEXT_PUBLIC_WS_URL || process.env.GO_BACKEND_URL;
+  const raw = process.env.NEXT_PUBLIC_WS_URL || process.env.GO_BACKEND_URL;
   if (!raw) return "wss://api.angelandmomo.dpdns.org";
 
   try {
     const u = new URL(raw);
-    const protocol = u.protocol === "https:" ? "wss:" : "ws:";
+    const protocol =
+      u.protocol === "https:" || u.protocol === "wss:" ? "wss:" : "ws:";
     return `${protocol}//${u.host}`;
   } catch {
     return "wss://api.angelandmomo.dpdns.org";

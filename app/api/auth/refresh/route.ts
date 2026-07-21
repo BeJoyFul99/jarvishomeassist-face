@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
       "Content-Type": "application/json",
     };
     if (accessToken) {
+      // Forward the access token as Authorization header if it exists (Optional, backend doesn't require it)
       headers["Authorization"] = `Bearer ${accessToken}`;
     }
 

@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "sonner";
 import { useManualCreateBill } from "@/lib/bills";
 
 interface Props {
@@ -27,7 +27,6 @@ function todayIso() {
 export function ManualBillDialog({ open, onOpenChange, propertyId }: Props) {
   const router = useRouter();
   const create = useManualCreateBill();
-  const { toast } = useToast();
 
   const [statementDate, setStatementDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState("");
@@ -68,14 +67,12 @@ export function ManualBillDialog({ open, onOpenChange, propertyId }: Props) {
         late_fees: lateFees || undefined,
         currency: currency || undefined,
       });
-      toast({ title: "Bill added", description: "Manual entry recorded." });
+      toast.success("Bill added", { description: "Manual entry recorded." });
       onOpenChange(false);
       router.push(`/utilities/${bill.id}`);
     } catch (e) {
-      toast({
-        title: "Couldn't add bill",
+      toast.error("Couldn't add bill", {
         description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
       });
     }
   }

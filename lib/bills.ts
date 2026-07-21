@@ -43,6 +43,7 @@ export interface UtilityBill {
   ingestion_source: IngestionSource;
   extraction_status: ExtractionStatus;
   extraction_method: ExtractionMethod | null;
+  extraction_model: string | null;
   extraction_confidence: number | null;
   extraction_error: string | null;
   raw_extracted_data: unknown;
@@ -127,7 +128,17 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    let msg = `${res.status} ${res.statusText}`;
+    try {
+      const err = await res.json();
+      if (err?.message) msg = err.message;
+      else if (err?.error) msg = err.error;
+    } catch {
+      // non-JSON body — keep the status-line fallback
+    }
+    throw new Error(msg);
+  }
   if (res.status === 204) return undefined as T;
   return res.json();
 }
@@ -139,6 +150,19 @@ export function useProperties() {
     queryKey: ["properties"],
     queryFn: () => get<Property[]>("/api/v1/properties"),
     staleTime: 60_000,
+  });
+}
+
+export function useDeleteProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      send<void>(`/api/v1/admin/properties/${id}`, "DELETE"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["properties"] });
+      qc.invalidateQueries({ queryKey: ["bills"] });
+      qc.invalidateQueries({ queryKey: ["budgets"] });
+    },
   });
 }
 
@@ -269,6 +293,29 @@ export function useReextract() {
   return useMutation({
     mutationFn: (id: number) =>
       send<{ bill_id: number }>(`/api/v1/admin/utility-bills/${id}/reextract`, "POST"),
+    // Optimistic: flip the cached bill to "processing" immediately so the
+    // Re-extract click doesn't block on the network round-trip. React Query
+    // re-invalidates after the actual 202 comes back, and SSE events finish
+    // the update once the worker completes.
+    onMutate: async (id: number) => {
+      const key = ["bill", id];
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<BillDetail>(key);
+      if (prev) {
+        qc.setQueryData<BillDetail>(key, {
+          ...prev,
+          bill: {
+            ...prev.bill,
+            extraction_status: "processing",
+            extraction_error: null,
+          },
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, id, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["bill", id], ctx.prev);
+    },
     onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: ["bills"] });
       qc.invalidateQueries({ queryKey: ["bill", id] });

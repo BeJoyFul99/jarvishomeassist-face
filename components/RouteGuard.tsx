@@ -55,5 +55,13 @@ export function useRouteGuard() {
     if (ADMIN_ONLY_ROUTES.some((r) => pathname === r)) {
       router.replace("/home");
     }
-  }, [_hasHydrated, isAuthenticated, user, effectiveRole, hasPermission, pathname, router]);
+  }, [
+    _hasHydrated,
+    isAuthenticated,
+    user,
+    effectiveRole,
+    hasPermission,
+    pathname,
+    router,
+  ]);
 }

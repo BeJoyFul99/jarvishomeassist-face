@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { memo, use, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -32,6 +32,7 @@ import {
 
 import {
   useBill,
+  useProperties,
   useReextract,
   useUpdateBill,
   useUpdateLineItem,
@@ -41,9 +42,10 @@ import {
   type UtilityBillMeter,
   type UtilityType,
   type PaymentStatus,
+  type Property,
 } from "@/lib/bills";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "sonner";
 import { MarkPaidDialog } from "@/components/utilities/MarkPaidDialog";
 import {
   HeroSkeleton,
@@ -88,15 +90,31 @@ const ORDER: UtilityType[] = ["electricity", "water", "hvac", "other"];
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function money(n: number, currency = "CAD") {
-  const formatted = n.toLocaleString(undefined, {
+  const sign = n < 0 ? "-" : "";
+  const formatted = Math.abs(n).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return currency === "CAD" ? `$${formatted}` : `$${formatted} ${currency}`;
+  return currency === "CAD"
+    ? `${sign}$${formatted}`
+    : `${sign}$${formatted} ${currency}`;
 }
 
 function daysBetween(a: Date, b: Date): number {
   return Math.floor((a.getTime() - b.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * Parse a bill date coming from the backend. Returns null for missing values
+ * and for Go's zero-value `time.Time` (year 1) that serializes as
+ * "0001-01-01T00:00:00Z" when extraction could not determine a date.
+ */
+function parseBillDate(v: string | null | undefined): Date | null {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getFullYear() < 1900) return null;
+  return d;
 }
 
 function computeUtilityTotals(
@@ -154,10 +172,12 @@ export default function BillDetailPage(props: {
   const { data, isLoading, error } = useBill(
     Number.isFinite(id) ? id : null,
   );
+  const { data: properties } = useProperties();
+  const property =
+    properties?.find((p) => p.id === data?.bill.property_id) ?? null;
   const reextract = useReextract();
   const updateBill = useUpdateBill();
   const updateLineItem = useUpdateLineItem();
-  const { toast } = useToast();
 
   const saving = updateBill.isPending || updateLineItem.isPending;
 
@@ -181,12 +201,10 @@ export default function BillDetailPage(props: {
       setEditing(false);
       setBillEdits({});
       setLineEdits({});
-      toast({ title: "Saved", description: "Bill corrections applied." });
+      toast.success("Saved", { description: "Bill corrections applied." });
     } catch (e) {
-      toast({
-        title: "Save failed",
+      toast.error("Save failed", {
         description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
       });
     }
   }
@@ -303,6 +321,16 @@ export default function BillDetailPage(props: {
         <UtilityCardsSkeleton />
       )}
 
+      {/* Tier 1.5 — Statement details + Payment activity */}
+      <motion.section
+        {...fade}
+        className="grid gap-3 md:grid-cols-2"
+        aria-label="Statement details and payment activity"
+      >
+        <StatementDetailsCard bill={bill} property={property} />
+        <PaymentActivityCard bill={bill} />
+      </motion.section>
+
       {/* Tier 2 — Utility Cards */}
       <motion.section
         {...fade}
@@ -323,6 +351,11 @@ export default function BillDetailPage(props: {
             setLineEdits={setLineEdits}
           />
         ))}
+      </motion.section>
+
+      {/* Tier 2.25 — Bill Total Reconciliation */}
+      <motion.section {...fade} aria-label="Bill total reconciliation">
+        <BillTotalSummary bill={bill} totals={totals} />
       </motion.section>
 
       {/* Tier 2.5 — Meters */}
@@ -400,9 +433,11 @@ function HeroLeft({
   onTotalAmountChange: (n: number) => void;
   onLateFeesChange: (n: number) => void;
 }) {
-  const due = bill.due_date ? new Date(bill.due_date) : null;
+  const due = parseBillDate(bill.due_date);
   const today = new Date();
   const daysToDue = due ? daysBetween(due, today) : null;
+  const periodStart = parseBillDate(bill.billing_period_start);
+  const periodEnd = parseBillDate(bill.billing_period_end);
 
   return (
     <Card className="rounded-[20px] border-white/10 bg-gradient-to-br from-neutral-950 to-neutral-900 p-6 flex flex-col justify-between">
@@ -426,18 +461,23 @@ function HeroLeft({
             {money(bill.total_amount, bill.currency)}
           </div>
         )}
-        {bill.billing_period_start && bill.billing_period_end && (
+        {periodStart && periodEnd && (
           <div className="mt-3 text-sm text-neutral-400">
-            {new Date(bill.billing_period_start).toLocaleDateString(undefined, {
+            {periodStart.toLocaleDateString(undefined, {
               month: "short",
               day: "numeric",
             })}
             {" – "}
-            {new Date(bill.billing_period_end).toLocaleDateString(undefined, {
+            {periodEnd.toLocaleDateString(undefined, {
               month: "short",
               day: "numeric",
               year: "numeric",
             })}
+          </div>
+        )}
+        {(!periodStart || !periodEnd) && bill.extraction_status === "needs_review" && (
+          <div className="mt-3 text-xs text-amber">
+            Billing period couldn&apos;t be read. Edit the bill or re-extract.
           </div>
         )}
       </div>
@@ -487,6 +527,26 @@ function HeroRight({
   })).filter((s) => s.amount > 0);
 
   const sum = segments.reduce((s, x) => s + x.amount, 0) || 1;
+
+  if (segments.length === 0) {
+    return (
+      <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
+        <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+          Breakdown
+        </div>
+        <div className="flex flex-col items-start gap-2 py-4">
+          <p className="text-sm text-neutral-400">
+            No line-item breakdown is available for this bill.
+          </p>
+          <p className="text-xs text-neutral-500">
+            {bill.extraction_status === "processing"
+              ? "Extraction is still running — check back in a moment."
+              : "Edit the bill or re-extract to populate electricity, water, and HVAC totals."}
+          </p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-4">
@@ -548,6 +608,282 @@ function HeroRight({
         })}
       </div>
     </Card>
+  );
+}
+
+// ── Statement details ─────────────────────────────────────────────────────────
+
+function StatementDetailsCard({
+  bill,
+  property,
+}: {
+  bill: UtilityBill;
+  property: Property | null;
+}) {
+  const statement = parseBillDate(bill.statement_date);
+  const due = parseBillDate(bill.due_date);
+  const fmtDate = (d: Date | null) =>
+    d
+      ? d.toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
+      : "—";
+  const billTypeTone: Record<string, string> = {
+    REGULAR: "bg-emerald/10 text-emerald border-emerald/20",
+    ESTIMATED: "bg-amber/10 text-amber border-amber/20",
+    FINAL: "bg-crimson/10 text-crimson border-crimson/20",
+  };
+  const tone =
+    billTypeTone[bill.bill_type?.toUpperCase() ?? ""] ??
+    "bg-white/5 text-neutral-300 border-white/10";
+
+  const rows: { label: string; value: React.ReactNode }[] = [
+    {
+      label: "Account",
+      value: property?.account_number ? (
+        <span className="font-mono tabular-nums">{property.account_number}</span>
+      ) : (
+        <span className="text-neutral-500">—</span>
+      ),
+    },
+    {
+      label: "Service address",
+      value: property?.address || <span className="text-neutral-500">—</span>,
+    },
+    {
+      label: "Bill type",
+      value: bill.bill_type ? (
+        <Badge variant="outline" className={`rounded-full px-2 py-0.5 text-[10px] ${tone}`}>
+          {bill.bill_type}
+        </Badge>
+      ) : (
+        <span className="text-neutral-500">—</span>
+      ),
+    },
+    { label: "Statement date", value: fmtDate(statement) },
+    { label: "Due date", value: fmtDate(due) },
+  ];
+
+  return (
+    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
+      <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+        Statement details
+      </div>
+      <div className="flex flex-col divide-y divide-white/5">
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            className="flex items-start justify-between gap-4 py-2 text-sm"
+          >
+            <span className="text-neutral-400 shrink-0">{r.label}</span>
+            <span className="text-neutral-100 text-right break-words">
+              {r.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ── Payment activity ──────────────────────────────────────────────────────────
+
+function PaymentActivityCard({ bill }: { bill: UtilityBill }) {
+  const prev = bill.previous_balance ?? 0;
+  const paid = bill.payments_received ?? 0;
+  const fwd = bill.balance_forward ?? 0;
+  const late = bill.late_fees ?? 0;
+  const hasAny = prev !== 0 || paid !== 0 || fwd !== 0 || late !== 0;
+
+  return (
+    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
+      <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+        Payment activity
+      </div>
+      {!hasAny ? (
+        <p className="text-sm text-neutral-500 py-4">
+          No prior balance or payments on this bill.
+        </p>
+      ) : (
+        <div className="flex flex-col divide-y divide-white/5">
+          <PaymentRow label="Previous balance" amount={prev} currency={bill.currency} />
+          <PaymentRow
+            label="Payment received"
+            amount={paid}
+            currency={bill.currency}
+            positiveTone="emerald"
+          />
+          <PaymentRow
+            label="Balance forward"
+            amount={fwd}
+            currency={bill.currency}
+            emphasize
+          />
+          {late > 0 && (
+            <PaymentRow
+              label="Late fees"
+              amount={late}
+              currency={bill.currency}
+              negativeTone="crimson"
+            />
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function PaymentRow({
+  label,
+  amount,
+  currency,
+  positiveTone,
+  negativeTone,
+  emphasize,
+}: {
+  label: string;
+  amount: number;
+  currency: string;
+  positiveTone?: "emerald";
+  negativeTone?: "crimson";
+  emphasize?: boolean;
+}) {
+  let cls = "text-neutral-100";
+  if (emphasize) cls = "text-neutral-100 font-semibold";
+  if (amount < 0 && positiveTone === "emerald") cls = "text-emerald font-medium";
+  if (amount > 0 && negativeTone === "crimson") cls = "text-crimson font-medium";
+  return (
+    <div className="flex items-center justify-between py-2 text-sm">
+      <span className="text-neutral-400">{label}</span>
+      <span className={`tabular-nums ${cls}`}>{money(amount, currency)}</span>
+    </div>
+  );
+}
+
+// ── Bill total reconciliation ────────────────────────────────────────────────
+
+function BillTotalSummary({
+  bill,
+  totals,
+}: {
+  bill: UtilityBill;
+  totals: Partial<Record<UtilityType, number>>;
+}) {
+  const lateFees = bill.late_fees ?? 0;
+  const prev = bill.previous_balance ?? 0;
+  const paid = bill.payments_received ?? 0;
+  const fwd = bill.balance_forward ?? 0;
+
+  const subtotal = ORDER.reduce((s, u) => s + (totals[u] ?? 0), 0);
+  const reconciled = subtotal + fwd + lateFees;
+  const matchesTotal = Math.abs(reconciled - bill.total_amount) < 0.01;
+
+  const chargeRows = ORDER.filter((u) => (totals[u] ?? 0) !== 0).map((u) => ({
+    label: UTILITY_META[u].label,
+    amount: totals[u] ?? 0,
+  }));
+
+  const hasCharges = chargeRows.length > 0;
+
+  return (
+    <Card className="rounded-[20px] border-white/10 bg-neutral-950 p-6 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+          Bill total
+        </div>
+        {!matchesTotal && hasCharges && (
+          <span className="text-[10px] font-mono text-amber px-2 py-0.5 rounded-full bg-amber/10 border border-amber/20">
+            math doesn&apos;t tie — verify amounts
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-col divide-y divide-white/5 text-sm">
+        {hasCharges ? (
+          chargeRows.map((r) => (
+            <SummaryRow key={r.label} label={r.label} amount={r.amount} currency={bill.currency} />
+          ))
+        ) : (
+          <p className="py-3 text-sm text-neutral-500">
+            Utility charges haven&apos;t been extracted yet.
+          </p>
+        )}
+
+        {hasCharges && (
+          <SummaryRow
+            label="Subtotal"
+            amount={subtotal}
+            currency={bill.currency}
+            emphasize
+          />
+        )}
+
+        {(prev !== 0 || paid !== 0) && (
+          <>
+            <SummaryRow
+              label="Previous balance"
+              amount={prev}
+              currency={bill.currency}
+            />
+            <SummaryRow
+              label="Payment received"
+              amount={paid}
+              currency={bill.currency}
+              greenNegative
+            />
+          </>
+        )}
+
+        {fwd !== 0 && (
+          <SummaryRow label="Balance forward" amount={fwd} currency={bill.currency} />
+        )}
+
+        {lateFees > 0 && (
+          <SummaryRow
+            label="Late fees"
+            amount={lateFees}
+            currency={bill.currency}
+            redPositive
+          />
+        )}
+
+        <div className="flex items-center justify-between py-3">
+          <span className="text-sm font-semibold text-foreground">Total due</span>
+          <span className="text-lg font-extrabold tabular-nums text-foreground">
+            {money(bill.total_amount, bill.currency)}
+          </span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function SummaryRow({
+  label,
+  amount,
+  currency,
+  emphasize,
+  greenNegative,
+  redPositive,
+}: {
+  label: string;
+  amount: number;
+  currency: string;
+  emphasize?: boolean;
+  greenNegative?: boolean;
+  redPositive?: boolean;
+}) {
+  let cls = "text-neutral-100";
+  if (emphasize) cls = "text-neutral-100 font-semibold";
+  if (greenNegative && amount < 0) cls = "text-emerald font-medium";
+  if (redPositive && amount > 0) cls = "text-crimson font-medium";
+  return (
+    <div className="flex items-center justify-between py-2">
+      <span className="text-neutral-400">{label}</span>
+      <span className={`tabular-nums ${cls}`}>{money(amount, currency)}</span>
+    </div>
   );
 }
 
@@ -754,7 +1090,7 @@ function UtilityCard({
 
 // ── Tier 2.5 — Meters table ───────────────────────────────────────────────────
 
-function MetersTable({ meters }: { meters: UtilityBillMeter[] }) {
+const MetersTable = memo(function MetersTable({ meters }: { meters: UtilityBillMeter[] }) {
   return (
     <Card className="rounded-[20px] border-white/10 bg-neutral-950 overflow-hidden">
       <div className="px-6 py-4 border-b border-white/10">
@@ -784,25 +1120,25 @@ function MetersTable({ meters }: { meters: UtilityBillMeter[] }) {
               </TableCell>
               <TableCell className="font-mono text-sm text-neutral-300">
                 <div>{m.previous_reading}</div>
-                {m.previous_read_date && (
-                  <div className="text-[10px] text-neutral-500">
-                    {new Date(m.previous_read_date).toLocaleDateString(
-                      undefined,
-                      { month: "short", day: "numeric" },
-                    )}
-                  </div>
-                )}
+                {(() => {
+                  const d = parseBillDate(m.previous_read_date);
+                  return d ? (
+                    <div className="text-[10px] text-neutral-500">
+                      {d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </div>
+                  ) : null;
+                })()}
               </TableCell>
               <TableCell className="font-mono text-sm text-neutral-300">
                 <div>{m.current_reading}</div>
-                {m.current_read_date && (
-                  <div className="text-[10px] text-neutral-500">
-                    {new Date(m.current_read_date).toLocaleDateString(
-                      undefined,
-                      { month: "short", day: "numeric" },
-                    )}
-                  </div>
-                )}
+                {(() => {
+                  const d = parseBillDate(m.current_read_date);
+                  return d ? (
+                    <div className="text-[10px] text-neutral-500">
+                      {d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </div>
+                  ) : null;
+                })()}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {m.usage.toLocaleString()}
@@ -816,7 +1152,7 @@ function MetersTable({ meters }: { meters: UtilityBillMeter[] }) {
       </Table>
     </Card>
   );
-}
+});
 
 // ── Extraction status banner ──────────────────────────────────────────────────
 
@@ -864,6 +1200,11 @@ function ExtractionBanner({
               Extraction confidence: {bill.extraction_confidence ?? "?"}%.
               Verify amounts and edit if needed.
             </div>
+            {bill.extraction_model && (
+              <div className="text-[10px] font-mono text-amber-400/60 mt-0.5">
+                Model: {bill.extraction_model}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">

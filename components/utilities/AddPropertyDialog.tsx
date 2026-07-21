@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "sonner";
 import { useCreateProperty } from "@/lib/bills";
 
 interface Props {
@@ -20,7 +20,6 @@ interface Props {
 
 export function AddPropertyDialog({ open, onOpenChange, onCreated }: Props) {
   const create = useCreateProperty();
-  const { toast } = useToast();
 
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -48,14 +47,12 @@ export function AddPropertyDialog({ open, onOpenChange, onCreated }: Props) {
         provider: provider.trim() || undefined,
         rate_class: rateClass.trim() || undefined,
       });
-      toast({ title: "Property added", description: created.name });
+      toast.success("Property added", { description: created.name });
       onCreated?.(created.id);
       onOpenChange(false);
     } catch (e) {
-      toast({
-        title: "Couldn't add property",
+      toast.error("Couldn't add property", {
         description: e instanceof Error ? e.message : String(e),
-        variant: "destructive",
       });
     }
   }
