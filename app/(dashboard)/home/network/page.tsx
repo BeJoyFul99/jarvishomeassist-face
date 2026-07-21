@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, springItem } from "@/lib/motion";
 import {
   Wifi,
   WifiOff,
@@ -25,15 +26,11 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useFleet } from "@/hooks/useFleet";
+import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "sonner";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
-};
+const container = staggerContainer(0.06);
+const item = springItem;
 
 interface WifiNetwork {
   id: number;
@@ -58,13 +55,19 @@ const CONNECTED_DEVICES = [
 const wifiQrString = (ssid: string, password: string, security: string) =>
   `WIFI:T:${security};S:${ssid};P:${password};;`;
 
-const WifiCard = ({ network }: { network: WifiNetwork }) => {
+const WifiCard = ({
+  network,
+  canManage,
+}: {
+  network: WifiNetwork;
+  canManage: boolean;
+}) => {
   const [showQr, setShowQr] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
   const [credentials, setCredentials] = useState<{ password: string } | null>(null);
 
-  const fetchCredentials = async () => {
+  const fetchCredentials = useCallback(async () => {
     try {
       const res = await fetch(`/api/wifi/${network.id}/credentials`);
       if (res.ok) {
@@ -74,20 +77,24 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
     } catch {
       // use the password from list if credentials fetch fails
     }
-  };
+  }, [network.id]);
 
   // Fetch full credentials when QR or show password is first requested
   useEffect(() => {
-    if ((showQr || showPassword) && !credentials) {
+    if ((showQr || showPassword) && canManage && !credentials) {
       fetchCredentials();
     }
-  }, [showQr, showPassword, credentials, fetchCredentials]);
+  }, [showQr, showPassword, canManage, credentials, fetchCredentials]);
 
   const password = credentials?.password || network.password || "••••••••";
   const IconComponent = network.is_guest ? Users : Lock;
   const color = network.is_guest ? "text-amber" : "text-cyan";
 
   const copyPassword = async () => {
+    if (!canManage) {
+      toast.error("You do not have permission to manage network credentials.");
+      return;
+    }
     if (!credentials) await fetchCredentials();
     const pw = credentials?.password || network.password;
     if (pw) {
@@ -127,7 +134,10 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
           </span>
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => setShowPassword(!showPassword)}
+            onClick={() => {
+              if (!canManage) return;
+              setShowPassword(!showPassword);
+            }}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -138,7 +148,7 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
           whileTap={{ scale: 0.9 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
           onClick={copyPassword}
-          className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+          className={`p-2 rounded-lg transition-colors ${canManage ? "bg-secondary hover:bg-secondary/80" : "bg-secondary/50 opacity-50 cursor-not-allowed"}`}
         >
           <AnimatePresence mode="wait">
             {copied ? (
@@ -156,8 +166,11 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.9 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          onClick={() => setShowQr(!showQr)}
-          className={`p-2 rounded-lg transition-colors ${showQr ? "bg-primary/10 text-primary" : "bg-secondary hover:bg-secondary/80 text-muted-foreground"}`}
+          onClick={() => {
+            if (!canManage) return;
+            setShowQr(!showQr);
+          }}
+          className={`p-2 rounded-lg transition-colors ${showQr ? "bg-primary/10 text-primary" : "text-muted-foreground"} ${canManage ? "bg-secondary hover:bg-secondary/80" : "bg-secondary/50 opacity-50 cursor-not-allowed"}`}
         >
           <QrCode className="w-4 h-4" />
         </motion.button>
@@ -196,6 +209,8 @@ const WifiCard = ({ network }: { network: WifiNetwork }) => {
 
 const HomeNetworkPage = () => {
   const { aggregated } = useFleet();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canManageNetwork = hasPermission("network:manage");
   const isOnline = aggregated.onlineNodes > 0;
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,7 +328,11 @@ const HomeNetworkPage = () => {
         ) : networks.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {networks.map((network) => (
-              <WifiCard key={network.id} network={network} />
+              <WifiCard
+                key={network.id}
+                network={network}
+                canManage={canManageNetwork}
+              />
             ))}
           </div>
         ) : (

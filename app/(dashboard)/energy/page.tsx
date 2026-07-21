@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, fadeUpItem } from "@/lib/motion";
 import {
   Zap,
   DollarSign,
@@ -49,14 +50,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
+const container = staggerContainer(0.06);
+const item = fadeUpItem;
 
 interface EnergyRate {
   id: number;

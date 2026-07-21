@@ -2,33 +2,24 @@
 
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  Settings,
-  SlidersHorizontal,
   Cpu,
-  Brain,
-  Shield,
-  Terminal,
   ChevronDown,
-  House,
-  ChartColumn,
   Dock,
   Server,
   CircuitBoard,
   Cloud,
   Check,
   Home,
-  Lightbulb,
-  Wifi,
-  Film,
-  Zap,
-  User,
-  Users,
-  ScrollText,
-  MessageCircle,
-  Megaphone,
-  Receipt,
 } from "lucide-react";
+import {
+  adminMainItems,
+  adminSystemItems,
+  adminConfigItems,
+  memberItems,
+  memberConfigItems,
+  userManagementItem,
+  type NavItem,
+} from "@/lib/navigation";
 import { NavLink } from "@/components/NavLink";
 import { usePathname } from "next/navigation";
 import { useFleet } from "@/hooks/useFleet";
@@ -53,57 +44,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-
-// Admin navigation
-const adminMainItems = [
-  { title: "Command Console", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Historical Data", url: "/analytics", icon: ChartColumn },
-];
-
-const adminSystemItems = [
-  { title: "Jarvis Chat", url: "/chat", icon: MessageCircle },
-  { title: "Inference Engine", url: "/inference", icon: Brain },
-  { title: "Network & Ports", url: "/network", icon: Shield },
-  { title: "Home Devices", url: "/devices", icon: House },
-  { title: "Energy Management", url: "/energy", icon: Zap },
-  { title: "Utilities", url: "/utilities", icon: Receipt },
-  { title: "Announcements", url: "/announcements", icon: Megaphone },
-  { title: "Terminal", url: "/terminal", icon: Terminal },
-  { title: "Server Logs", url: "/logs", icon: ScrollText },
-];
-
-const adminConfigItems = [
-  { title: "User Management", url: "/users", icon: Users },
-  { title: "Server Settings", url: "/settings", icon: Settings },
-  { title: "Preferences", url: "/preferences", icon: SlidersHorizontal },
-];
-
-// Family member navigation (perm = required permission, undefined = always visible)
-const memberItems = [
-  { title: "Home", url: "/home", icon: Home, perm: undefined },
-  { title: "Updates", url: "/home/announcements", icon: Megaphone, perm: undefined },
-  { title: "Jarvis Chat", url: "/chat", icon: MessageCircle, perm: undefined },
-  {
-    title: "Smart Home",
-    url: "/home/devices",
-    icon: Lightbulb,
-    perm: "smart_device:view",
-  },
-  { title: "Energy", url: "/home/energy", icon: Zap, perm: undefined },
-  { title: "Utilities", url: "/home/utilities", icon: Receipt, perm: undefined },
-  { title: "Network", url: "/home/network", icon: Wifi, perm: "network:view" },
-  {
-    title: "Media & Files",
-    url: "/home/media",
-    icon: Film,
-    perm: "media:view",
-  },
-];
-
-const memberConfigItems = [
-  { title: "My Profile", url: "/profile", icon: User },
-  { title: "Preferences", url: "/preferences", icon: SlidersHorizontal },
-];
 
 const nodeIcons: Record<string, typeof Cpu> = {
   macbook: Cpu,
@@ -133,10 +73,7 @@ export function AppSidebar() {
   const ActiveNodeIcon = nodeIcons[activeNode?.type || "server"];
   const onlineCount = nodes.filter((n) => n.status === "online").length;
 
-  const renderNavGroup = (
-    label: string,
-    items: { title: string; url: string; icon: typeof Cpu }[],
-  ) => (
+  const renderNavGroup = (label: string, items: NavItem[]) => (
     <SidebarGroup key={label}>
       <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">
         {label}
@@ -302,9 +239,7 @@ export function AppSidebar() {
             )}
             {renderNavGroup("Account", [
               ...memberConfigItems,
-              ...(canViewUsers
-                ? [{ title: "User Management", url: "/users", icon: Users }]
-                : []),
+              ...(canViewUsers ? [userManagementItem] : []),
             ])}
           </>
         )}
@@ -321,8 +256,8 @@ export function AppSidebar() {
                     {onlineCount}/{nodes.length} Online
                   </span>
                 </p>
-                <p className="text-[10px] font-mono text-muted-foreground">
-                  Uptime: 14d 02h 31m
+                <p className="text-[10px] font-mono text-muted-foreground truncate">
+                  Node: <span className="text-foreground">{activeNode.name}</span>
                 </p>
               </>
             ) : (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, springItem } from "@/lib/motion";
 import {
   Lightbulb,
   Thermometer,
@@ -30,15 +31,12 @@ import {
 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { useAuthStore } from "@/store/useAuthStore";
+import { toast } from "sonner";
+import { DEMO_SMART_DEVICES } from "@/lib/demoDevices";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
-};
+const container = staggerContainer(0.06);
+const item = springItem;
 
 const DEVICE_TYPE_ICONS: Record<string, typeof Lightbulb> = {
   light: Lightbulb,
@@ -100,6 +98,9 @@ interface SmartDevice {
 }
 
 const HomeDevicesPage = () => {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canControlDevices = hasPermission("smart_device:control");
+  const canManageGroups = hasPermission("smart_device:group");
   const [devices, setDevices] = useState<SmartDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -123,6 +124,10 @@ const HomeDevicesPage = () => {
     return { "Content-Type": "application/json" };
   }, []);
 
+  const denyControl = useCallback(() => {
+    toast.error("You do not have permission to control devices.");
+  }, []);
+
   useEffect(() => {
     const fetchDevices = async () => {
       try {
@@ -141,6 +146,11 @@ const HomeDevicesPage = () => {
   }, [authHeaders]);
 
   const sendControl = useCallback(async (deviceId: number, body: Record<string, any>, rollback?: () => void) => {
+    if (!canControlDevices) {
+      rollback?.();
+      denyControl();
+      return;
+    }
     setBusyDevices((prev) => new Set(prev).add(deviceId));
     try {
       const res = await fetch(`/api/devices/${deviceId}/control`, {
@@ -174,7 +184,7 @@ const HomeDevicesPage = () => {
         return next;
       });
     }
-  }, [authHeaders, showDeviceError]);
+  }, [authHeaders, canControlDevices, denyControl, showDeviceError]);
 
   const toggle = async (device: SmartDevice) => {
     const action = device.state?.on ? "off" : "on";
@@ -214,6 +224,10 @@ const HomeDevicesPage = () => {
   };
 
   const setColorTemp = (device: SmartDevice, temp: number) => {
+    if (!canControlDevices) {
+      denyControl();
+      return;
+    }
     setDevices((prev) =>
       prev.map((d) =>
         d.id === device.id
@@ -228,6 +242,10 @@ const HomeDevicesPage = () => {
   };
 
   const setRGB = (device: SmartDevice, r: number, g: number, b: number) => {
+    if (!canControlDevices) {
+      denyControl();
+      return;
+    }
     setDevices((prev) =>
       prev.map((d) =>
         d.id === device.id
@@ -239,6 +257,10 @@ const HomeDevicesPage = () => {
   };
 
   const setScene = (device: SmartDevice, sceneId: number, sceneName: string) => {
+    if (!canControlDevices) {
+      denyControl();
+      return;
+    }
     setDevices((prev) =>
       prev.map((d) =>
         d.id === device.id
@@ -250,6 +272,10 @@ const HomeDevicesPage = () => {
   };
 
   const allLights = (on: boolean) => {
+    if (!canManageGroups) {
+      toast.error("You do not have permission to manage device groups.");
+      return;
+    }
     const lights = devices.filter((d) => d.device_type === "light");
     lights.forEach((device) => {
       setDevices((prev) =>
@@ -322,6 +348,7 @@ const HomeDevicesPage = () => {
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             onClick={() => allLights(true)}
+            disabled={!canManageGroups}
             className="px-3 py-1.5 rounded-lg glass-surface text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
           >
             <Sun className="w-3.5 h-3.5 text-amber" /> All Lights On
@@ -331,6 +358,7 @@ const HomeDevicesPage = () => {
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             onClick={() => allLights(false)}
+            disabled={!canManageGroups}
             className="px-3 py-1.5 rounded-lg glass-surface text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
           >
             <Moon className="w-3.5 h-3.5 text-cyan" /> All Lights Off
@@ -339,10 +367,62 @@ const HomeDevicesPage = () => {
       </motion.div>
 
       {devices.length === 0 && (
-        <motion.div variants={item} className="glass-card p-8 text-center">
-          <Lightbulb className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No smart devices registered yet.</p>
-          <p className="text-xs text-muted-foreground mt-1">Add devices from the admin Devices page.</p>
+        <motion.div variants={item} className="space-y-4">
+          <div className="glass-card p-6 text-center">
+            <Lightbulb className="w-7 h-7 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No smart devices registered yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">Ask an administrator to add lights to your home.</p>
+          </div>
+
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber/10 border border-amber/20">
+            <Sparkles className="w-3.5 h-3.5 text-amber shrink-0" />
+            <span className="text-[11px] text-amber">
+              Sample preview — here's what this page looks like with real devices.
+            </span>
+          </div>
+
+          {[...new Set(DEMO_SMART_DEVICES.map((d) => d.room))].map((room) => (
+            <div key={room} className="space-y-3">
+              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground">{room}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 opacity-60 pointer-events-none select-none">
+                {DEMO_SMART_DEVICES.filter((d) => d.room === room).map((d) => {
+                  const isOn = !!d.state?.on;
+                  const brightness = typeof d.state?.brightness === "number" ? (d.state.brightness as number) : null;
+                  return (
+                    <div
+                      key={d.id}
+                      className={`glass-card p-4 space-y-3 relative ${isOn ? "border-primary/20 shadow-[0_0_20px_-8px_hsl(var(--primary)/0.15)]" : ""}`}
+                    >
+                      <span className="absolute top-2 right-2 text-[9px] font-mono uppercase tracking-widest text-amber bg-amber/10 border border-amber/20 px-1.5 py-0.5 rounded-full">
+                        Sample
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${isOn ? "bg-primary/10" : "bg-secondary/50"}`}>
+                            <Lightbulb className={`w-4 h-4 ${isOn ? "text-primary" : "text-muted-foreground"}`} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{d.name}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {isOn ? (brightness != null ? `${brightness}% brightness` : "On") : "Off"}
+                            </p>
+                          </div>
+                        </div>
+                        <Switch checked={isOn} disabled />
+                      </div>
+                      {isOn && brightness != null && (
+                        <div className="flex items-center gap-3">
+                          <Sun className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <Slider value={[brightness]} min={10} max={100} step={1} disabled className="flex-1" />
+                          <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{brightness}%</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </motion.div>
       )}
 
@@ -421,7 +501,7 @@ const HomeDevicesPage = () => {
                         )}
                         <Switch
                           checked={!!isOn}
-                          disabled={busyDevices.has(device.id)}
+                          disabled={busyDevices.has(device.id) || !canControlDevices}
                           onCheckedChange={() => toggle(device)}
                         />
                       </div>
@@ -461,6 +541,7 @@ const HomeDevicesPage = () => {
                               min={10}
                               max={100}
                               step={1}
+                              disabled={!canControlDevices || busyDevices.has(device.id)}
                               onValueCommit={([v]) => setBrightness(device, v)}
                               onValueChange={([v]) =>
                                 setDevices((prev) =>
@@ -643,6 +724,7 @@ const HomeDevicesPage = () => {
                                       min={2200}
                                       max={6500}
                                       step={100}
+                                      disabled={!canControlDevices || busyDevices.has(device.id)}
                                       onValueCommit={([v]) => setColorTemp(device, v)}
                                       onValueChange={([v]) =>
                                         setDevices((prev) =>

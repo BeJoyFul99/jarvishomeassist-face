@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, fadeUpItem } from "@/lib/motion";
 import {
   Home, Lightbulb, Thermometer, Camera, Speaker, WifiOff,
   Laptop, Smartphone, HardDrive, Monitor,
   Signal, Router, Settings as SettingsIcon, Plus, Trash2, Pencil, X, Check,
-  ToggleLeft, ToggleRight, Search, Loader2, RefreshCw,
+  ToggleLeft, ToggleRight, Search, Loader2, RefreshCw, Info, Sparkles,
 } from "lucide-react";
+import { DEMO_SMART_DEVICES, DEMO_NETWORK_DEVICES } from "@/lib/demoDevices";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -25,16 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
+const container = staggerContainer(0.06);
+const item = fadeUpItem;
 
 interface SmartDevice {
   id: number;
@@ -81,15 +78,11 @@ const NETWORK_TYPE_ICONS: Record<string, any> = {
   "Access Point": Router,
 };
 
-const INITIAL_NETWORK_DEVICES: NetworkDevice[] = [
-  { id: "n1", name: "MacBook Pro", ip: "192.168.1.42", mac: "A4:83:E7:2B:1C:9F", icon: Laptop, type: "Computer", online: true, lastSeen: "Now", bandwidth: "12.4 MB/s" },
-  { id: "n2", name: "iPhone 15", ip: "192.168.1.55", mac: "B2:9A:F1:4C:8D:3E", icon: Smartphone, type: "Phone", online: true, lastSeen: "Now", bandwidth: "2.1 MB/s" },
-  { id: "n3", name: "Synology NAS", ip: "192.168.1.10", mac: "00:11:32:AB:CD:EF", icon: HardDrive, type: "NAS", online: true, lastSeen: "Now", bandwidth: "45.2 MB/s" },
-  { id: "n4", name: "Smart TV", ip: "192.168.1.80", mac: "C8:D7:19:5A:2B:FF", icon: Monitor, type: "Display", online: true, lastSeen: "Now", bandwidth: "8.7 MB/s" },
-  { id: "n5", name: "iPad Air", ip: "192.168.1.63", mac: "D4:E6:B8:3C:9A:12", icon: Smartphone, type: "Tablet", online: false, lastSeen: "2h ago", bandwidth: "—" },
-  { id: "n6", name: "HomeLab Server", ip: "192.168.1.2", mac: "00:25:90:FE:DC:BA", icon: HardDrive, type: "Server", online: true, lastSeen: "Now", bandwidth: "67.8 MB/s" },
-  { id: "n7", name: "Wi-Fi AP (Upstairs)", ip: "192.168.1.3", mac: "F0:9F:C2:1A:5B:77", icon: Router, type: "Access Point", online: true, lastSeen: "Now", bandwidth: "—" },
-];
+// Seed the Network tab with demo rows (real LAN scanning is not wired up yet).
+const INITIAL_NETWORK_DEVICES: NetworkDevice[] = DEMO_NETWORK_DEVICES.map((d) => ({
+  ...d,
+  icon: NETWORK_TYPE_ICONS[d.type] || Laptop,
+}));
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState<SmartDevice[]>([]);
@@ -98,24 +91,12 @@ export default function DevicesPage() {
   const [tab, setTab] = useState<"smart" | "network">("smart");
   const [manageMode, setManageMode] = useState(false);
   const [discovering, setDiscovering] = useState(false);
-  const [deviceErrors, setDeviceErrors] = useState<Record<number, string>>({});
   const [busyDevices, setBusyDevices] = useState<Set<number>>(new Set());
   const [discoverResult, setDiscoverResult] = useState<{
     discovered: { ip: string; registered: boolean; mac?: string; module?: string }[];
     count: number;
   } | null>(null);
   const [discoverDialogOpen, setDiscoverDialogOpen] = useState(false);
-
-  const showDeviceError = useCallback((deviceId: number, message: string) => {
-    setDeviceErrors((prev) => ({ ...prev, [deviceId]: message }));
-    setTimeout(() => {
-      setDeviceErrors((prev) => {
-        const next = { ...prev };
-        delete next[deviceId];
-        return next;
-      });
-    }, 4000);
-  }, []);
 
   // Smart device dialog state
   const [smartDialogOpen, setSmartDialogOpen] = useState(false);
@@ -143,9 +124,15 @@ export default function DevicesPage() {
       if (res.ok) {
         const data: SmartDevice[] = await res.json();
         setDevices(data);
+      } else {
+        toast.error("Couldn't load devices", {
+          description: `Server responded ${res.status}`,
+        });
       }
-    } catch {
-      // silent
+    } catch (e) {
+      toast.error("Couldn't load devices", {
+        description: e instanceof Error ? e.message : "Network error",
+      });
     } finally {
       setLoading(false);
     }
@@ -178,15 +165,19 @@ export default function DevicesPage() {
         );
       } else {
         const err = await res.json().catch(() => ({ error: "Request failed" }));
-        showDeviceError(device.id, err.detail || err.error || "Device unreachable");
+        toast.error(`${device.name} unreachable`, {
+          description: err.detail || err.error || "Device did not respond",
+        });
         setDevices((prev) =>
           prev.map((d) =>
             d.id === device.id ? { ...d, online: false, state: { ...d.state, on: prevOn } } : d
           )
         );
       }
-    } catch {
-      showDeviceError(device.id, "Network error — could not reach device");
+    } catch (e) {
+      toast.error(`${device.name} unreachable`, {
+        description: e instanceof Error ? e.message : "Network error — could not reach device",
+      });
       setDevices((prev) =>
         prev.map((d) =>
           d.id === device.id ? { ...d, online: false, state: { ...d.state, on: prevOn } } : d
@@ -207,9 +198,17 @@ export default function DevicesPage() {
       if (res.ok) {
         const data: SmartDevice = await res.json();
         setDevices((prev) => prev.map((d) => (d.id === data.id ? data : d)));
+        toast.success("State refreshed", { description: data.name });
+      } else {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        toast.error("Couldn't refresh state", {
+          description: err.detail || err.error || "Device did not respond",
+        });
       }
-    } catch {
-      // silent
+    } catch (e) {
+      toast.error("Couldn't refresh state", {
+        description: e instanceof Error ? e.message : "Network error",
+      });
     }
   };
 
@@ -230,10 +229,17 @@ export default function DevicesPage() {
           await fetchDevices();
         }
       } else {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        toast.error("Discovery failed", {
+          description: err.error || `Server responded ${res.status}`,
+        });
         setDiscoverResult({ discovered: [], count: 0 });
         setDiscoverDialogOpen(true);
       }
-    } catch {
+    } catch (e) {
+      toast.error("Discovery failed", {
+        description: e instanceof Error ? e.message : "Network error",
+      });
       setDiscoverResult({ discovered: [], count: 0 });
       setDiscoverDialogOpen(true);
     } finally {
@@ -274,6 +280,13 @@ export default function DevicesPage() {
         if (res.ok) {
           const updated: SmartDevice = await res.json();
           setDevices((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+          toast.success("Device updated", { description: updated.name });
+        } else {
+          const err = await res.json().catch(() => ({ error: "Request failed" }));
+          toast.error("Couldn't update device", {
+            description: err.error || `Server responded ${res.status}`,
+          });
+          return;
         }
       } else {
         const res = await fetch("/api/admin/devices", {
@@ -284,23 +297,44 @@ export default function DevicesPage() {
         if (res.ok) {
           const created: SmartDevice = await res.json();
           setDevices((prev) => [...prev, created]);
+          toast.success("Device added", { description: created.name });
+        } else {
+          const err = await res.json().catch(() => ({ error: "Request failed" }));
+          toast.error("Couldn't add device", {
+            description: err.error || `Server responded ${res.status}`,
+          });
+          return;
         }
       }
-    } catch {
-      // silent
+    } catch (e) {
+      toast.error(editingDevice ? "Couldn't update device" : "Couldn't add device", {
+        description: e instanceof Error ? e.message : "Network error",
+      });
+      return;
     }
     setSmartDialogOpen(false);
   };
 
   const deleteSmart = async (id: number) => {
+    const removed = devices.find((d) => d.id === id);
     try {
-      await fetch(`/api/admin/devices/${id}`, {
+      const res = await fetch(`/api/admin/devices/${id}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
-      setDevices((prev) => prev.filter((d) => d.id !== id));
-    } catch {
-      // silent
+      if (res.ok) {
+        setDevices((prev) => prev.filter((d) => d.id !== id));
+        toast.success("Device removed", { description: removed?.name ?? `#${id}` });
+      } else {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        toast.error("Couldn't delete device", {
+          description: err.error || `Server responded ${res.status}`,
+        });
+      }
+    } catch (e) {
+      toast.error("Couldn't delete device", {
+        description: e instanceof Error ? e.message : "Network error",
+      });
     }
     setDeleteTarget(null);
   };
@@ -484,10 +518,66 @@ export default function DevicesPage() {
                   <span className="text-sm">Loading devices...</span>
                 </div>
               ) : devices.length === 0 ? (
-                <div className="glass-card p-8 text-center space-y-3">
-                  <Lightbulb className="w-8 h-8 text-muted-foreground mx-auto" />
-                  <p className="text-sm text-muted-foreground">No smart devices registered yet.</p>
-                  <p className="text-xs text-muted-foreground">Click Manage then Add Device or Discover WiZ to get started.</p>
+                <div className="space-y-4">
+                  <div className="glass-card p-8 text-center space-y-3">
+                    <Lightbulb className="w-8 h-8 text-muted-foreground mx-auto" />
+                    <p className="text-sm text-muted-foreground">No smart devices registered yet.</p>
+                    <p className="text-xs text-muted-foreground">Click Manage then Add Device or Discover WiZ to get started.</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber/10 border border-amber/20">
+                    <Sparkles className="w-3.5 h-3.5 text-amber shrink-0" />
+                    <span className="text-[11px] text-amber">
+                      Sample preview — the cards below are not real devices.
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 opacity-50 pointer-events-none select-none">
+                    {DEMO_SMART_DEVICES.slice(0, 4).map((d) => {
+                      const isOn = !!d.state?.on;
+                      return (
+                        <div
+                          key={d.id}
+                          className="glass-card-hover p-3 sm:p-4 relative"
+                        >
+                          <span className="absolute top-2 right-2 text-[9px] font-mono uppercase tracking-widest text-amber bg-amber/10 border border-amber/20 px-1.5 py-0.5 rounded-full">
+                            Sample
+                          </span>
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`p-1.5 sm:p-2 rounded-lg ${isOn ? "bg-primary/10" : "bg-secondary"}`}>
+                                <Lightbulb className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isOn ? "text-primary" : "text-muted-foreground"}`} />
+                              </div>
+                              <div>
+                                <div className="text-xs sm:text-sm font-medium text-foreground">{d.name}</div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground">{d.room}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <span className="text-[10px] font-mono text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">{d.brand}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground px-2 py-0.5 rounded-full bg-secondary">{d.model}</span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">Power</span>
+                              {isOn ? (
+                                <ToggleRight className="w-6 h-6 text-emerald" />
+                              ) : (
+                                <ToggleLeft className="w-6 h-6 text-muted-foreground" />
+                              )}
+                            </div>
+                            {isOn && typeof d.state?.brightness === "number" && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Brightness</span>
+                                <span className="font-mono text-xs text-foreground">{d.state.brightness as number}%</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -561,24 +651,6 @@ export default function DevicesPage() {
                           <div>IP: {device.ip}</div>
                           {device.mac && <div>MAC: {device.mac}</div>}
                         </div>
-
-                        {/* Error banner */}
-                        <AnimatePresence>
-                          {deviceErrors[device.id] && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-crimson/10 border border-crimson/20 mb-2">
-                                <WifiOff className="w-3.5 h-3.5 text-crimson shrink-0" />
-                                <span className="text-[11px] text-crimson">{deviceErrors[device.id]}</span>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
 
                         {/* Device controls */}
                         {device.device_type === "light" && (
@@ -661,6 +733,12 @@ export default function DevicesPage() {
               exit={{ opacity: 0, y: -8 }}
               className="glass-card-hover overflow-hidden"
             >
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-amber/10 border-b border-amber/20">
+                <Info className="w-3.5 h-3.5 text-amber shrink-0" />
+                <span className="text-[11px] text-amber">
+                  Demo data — real LAN scanning isn't connected yet. Edits here are local and won't persist.
+                </span>
+              </div>
               <div className={`grid gap-2 px-5 py-3 border-b border-border text-xs text-muted-foreground font-medium ${
                 manageMode ? "grid-cols-[1fr_120px_160px_100px_80px_70px]" : "grid-cols-[1fr_120px_160px_100px_80px]"
               }`}>

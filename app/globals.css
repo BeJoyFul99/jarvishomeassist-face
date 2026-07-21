@@ -1,10 +1,15 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
-
 @import "tailwindcss";
 
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Fonts are loaded via next/font in app/layout.tsx; these map them to Tailwind's
+   font-sans / font-mono utilities. */
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", monospace;
+}
 
 @theme {
   --color-border: hsl(var(--border));
@@ -135,7 +140,7 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: "Inter", "system-ui", sans-serif;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 }
@@ -171,7 +176,7 @@
   }
 
   .font-mono-data {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
     font-size: 0.875rem;
     letter-spacing: 0.05em;
   }
@@ -181,7 +186,7 @@
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 500;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
     letter-spacing: 0.025em;
   }
 
@@ -342,5 +347,5 @@ button:hover {
   margin: 0.5rem 0;
 }
 .prose-sm code {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
 }

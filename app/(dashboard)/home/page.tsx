@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { staggerContainer, springItem } from "@/lib/motion";
 import {
   Cloud,
   Wifi,
@@ -59,19 +60,8 @@ function authHeaders() {
   return { "Content-Type": "application/json" };
 }
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16, scale: 0.97 },
-  show: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { type: "spring" as const, stiffness: 300, damping: 24 },
-  },
-};
+const container = staggerContainer(0.08);
+const item = springItem;
 
 const QUICK_LINKS = [
   {

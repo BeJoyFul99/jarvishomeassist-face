@@ -8,6 +8,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
 import NotificationCenter from "@/components/NotificationCenter";
+import { CommandPalette } from "@/components/CommandPalette";
 import { Wifi, Shield, Cpu, HardDrive, Brain } from "lucide-react";
 import { useFleet } from "@/hooks/useFleet";
 
@@ -171,6 +172,7 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
               </div>
 
               <div className="flex items-center gap-2">
+                <CommandPalette />
                 <NotificationCenter />
                 <UserProfileDropdown />
               </div>

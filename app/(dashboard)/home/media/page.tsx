@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { staggerContainer, springItem } from "@/lib/motion";
 import {
   HardDrive,
   Film,
@@ -11,14 +12,8 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
-};
+const container = staggerContainer(0.06);
+const item = springItem;
 
 const MEDIA_CATEGORIES = [
   { name: "Movies & Shows", icon: Film, count: 142, size: "1.2 TB", color: "text-magenta" },

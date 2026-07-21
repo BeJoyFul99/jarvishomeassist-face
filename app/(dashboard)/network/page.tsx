@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { staggerContainer, springItem } from "@/lib/motion";
 import {
   Network,
   Shield,
@@ -26,14 +27,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
-};
+const container = staggerContainer(0.08);
+const item = springItem;
 
 interface WifiNetwork {
   id: number;
@@ -50,10 +45,12 @@ const WifiEditCard = ({
   network,
   onSave,
   onToggle,
+  canManage,
 }: {
   network: WifiNetwork;
   onSave: (id: number, ssid: string, password: string) => void;
   onToggle: (id: number) => void;
+  canManage: boolean;
 }) => {
   const [editing, setEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -66,6 +63,7 @@ const WifiEditCard = ({
   }, [network.ssid, network.password]);
 
   const handleSave = () => {
+    if (!canManage) return;
     onSave(network.id, draftSsid, draftPassword);
     setEditing(false);
   };
@@ -110,6 +108,7 @@ const WifiEditCard = ({
           </span>
           <Switch
             checked={network.enabled}
+            disabled={!canManage}
             onCheckedChange={() => onToggle(network.id)}
             className="scale-90"
           />
@@ -118,8 +117,8 @@ const WifiEditCard = ({
               whileHover={network.enabled ? { scale: 1.1 } : {}}
               whileTap={network.enabled ? { scale: 0.9 } : {}}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}
-              onClick={() => network.enabled && setEditing(true)}
-              className={`p-1.5 rounded-lg transition-colors ${network.enabled ? "hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer" : "text-muted-foreground/50 cursor-not-allowed"}`}
+              onClick={() => network.enabled && canManage && setEditing(true)}
+              className={`p-1.5 rounded-lg transition-colors ${network.enabled && canManage ? "hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer" : "text-muted-foreground/50 cursor-not-allowed"}`}
             >
               <Pencil className="w-3.5 h-3.5" />
             </motion.button>
@@ -177,6 +176,8 @@ const WifiEditCard = ({
 
 export default function NetworkPage() {
   const { status } = useSystemStatus();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canManageNetwork = hasPermission("network:manage");
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -199,6 +200,10 @@ export default function NetworkPage() {
   }, [fetchNetworks]);
 
   const handleSaveNetwork = async (id: number, ssid: string, password: string) => {
+    if (!canManageNetwork) {
+      toast.error("You do not have permission to manage network settings.");
+      return;
+    }
     try {
       const res = await fetch(`/api/admin/wifi/${id}`, {
         method: "PATCH",
@@ -220,6 +225,10 @@ export default function NetworkPage() {
   };
 
   const handleToggleNetwork = async (id: number) => {
+    if (!canManageNetwork) {
+      toast.error("You do not have permission to manage network settings.");
+      return;
+    }
     try {
       const res = await fetch(`/api/admin/wifi/${id}/toggle`, {
         method: "POST",
@@ -311,6 +320,7 @@ export default function NetworkPage() {
                   network={network}
                   onSave={handleSaveNetwork}
                   onToggle={handleToggleNetwork}
+                  canManage={canManageNetwork}
                 />
               ))}
             </div>

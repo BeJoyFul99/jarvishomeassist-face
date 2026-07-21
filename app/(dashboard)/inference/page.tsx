@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { staggerContainer, fadeUpItem } from "@/lib/motion";
 import {
   Brain,
   Zap,
@@ -35,14 +36,8 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
+const container = staggerContainer(0.06);
+const item = fadeUpItem;
 
 const COST_PER_1K = 0.011;
 const FREE_TIER_NEURONS = 10000;

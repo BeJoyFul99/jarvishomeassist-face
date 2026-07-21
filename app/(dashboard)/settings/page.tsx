@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { staggerContainer, springItem } from "@/lib/motion";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Save, RotateCcw, Server } from "lucide-react";
@@ -8,14 +9,8 @@ import { toast } from "sonner";
 import { SettingsForm } from "@/components/SettingsForm";
 import { SERVER_SETTINGS, buildDefaults } from "@/lib/settingsSchema";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
-};
+const container = staggerContainer(0.06);
+const item = springItem;
 
 const DEFAULTS = buildDefaults(SERVER_SETTINGS);
 

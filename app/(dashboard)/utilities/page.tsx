@@ -3,30 +3,41 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { staggerContainer, fadeUpItem } from "@/lib/motion";
 import Link from "next/link";
 import {
   Plus, Receipt, AlertTriangle, CheckCircle2, Clock, Loader2,
-  Home as HomeIcon, TrendingUp, Target, Gauge, FileWarning,
+  Home as HomeIcon, TrendingUp, Target, Gauge, FileWarning, Trash2,
+  ChevronDown, Check, Pencil, UploadCloud, MoreHorizontal, Eye, RefreshCw,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu, ContextMenuContent, ContextMenuItem,
+  ContextMenuSeparator, ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 import {
-  useBills, useProperties, useBudgets, usePace,
-  type UtilityBill, type ExtractionStatus, type PaymentStatus,
+  useBills, useProperties, useBudgets, usePace, useDeleteProperty,
+  useReextract, useDeleteBill,
+  type UtilityBill, type ExtractionStatus, type PaymentStatus, type Property,
 } from "@/lib/bills";
 import { useUtilityPropertyStore } from "@/store/useUtilityPropertyStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useToast } from "@/hooks/useToast";
+import { toast } from "sonner";
 import { useBillExtraction } from "@/hooks/useBillExtraction";
 import { UploadBillDialog } from "@/components/utilities/UploadBillDialog";
 import { AddPropertyDialog } from "@/components/utilities/AddPropertyDialog";
@@ -36,14 +47,8 @@ import { SetBudgetDialog } from "@/components/utilities/SetBudgetDialog";
 import { BillTableSkeleton } from "@/components/utilities/Skeletons";
 import { GhostBillPreview } from "@/components/utilities/GhostBillPreview";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
-};
+const container = staggerContainer(0.06);
+const item = fadeUpItem;
 
 type Tab = "bills" | "budget" | "meters";
 
@@ -52,14 +57,15 @@ export default function UtilitiesPage() {
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
   const isAdmin = effectiveRole === "administrator";
   const router = useRouter();
-  const { toast } = useToast();
 
   const [tab, setTab] = useState<Tab>("bills");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [addPropertyOpen, setAddPropertyOpen] = useState(false);
   const [manualBillOpen, setManualBillOpen] = useState(false);
   const [setBudgetOpen, setSetBudgetOpen] = useState(false);
+  const [deletePropertyOpen, setDeletePropertyOpen] = useState(false);
   const [backgroundBillId, setBackgroundBillId] = useState<number | null>(null);
+  const deleteProperty = useDeleteProperty();
   const bgEv = useBillExtraction(backgroundBillId);
 
   const { data: properties, isLoading: propsLoading, isError: propsError, refetch: refetchProps } =
@@ -94,19 +100,16 @@ export default function UtilitiesPage() {
     if (bgEv.phase === "completed" && bgEv.billId === backgroundBillId) {
       const id = backgroundBillId;
       setBackgroundBillId(null);
-      toast({
-        title: bgEv.needsReview ? "Bill ready for review" : "Bill ready",
+      toast.success(bgEv.needsReview ? "Bill ready for review" : "Bill ready", {
         description: `Extraction finished. Open Utilities to view bill #${id}.`,
       });
     } else if (bgEv.phase === "failed" && bgEv.billId === backgroundBillId) {
       setBackgroundBillId(null);
-      toast({
-        title: "Extraction failed",
+      toast.error("Extraction failed", {
         description: bgEv.error,
-        variant: "destructive",
       });
     }
-  }, [bgEv, backgroundBillId, toast]);
+  }, [bgEv, backgroundBillId]);
 
   // ── Derived stats ─────────────────────────────────────────
   const propertyCount = properties?.length ?? 0;
@@ -157,51 +160,35 @@ export default function UtilitiesPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {properties && properties.length > 1 && (
-            <Select
-              value={currentPropertyId?.toString() ?? ""}
-              onValueChange={(v) => setCurrentPropertyId(Number(v))}
-            >
-              <SelectTrigger className="w-48 rounded-xl border-white/10 bg-white/5 backdrop-blur">
-                <SelectValue placeholder="Select property" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {properties.map((p) => (
-                  <SelectItem key={p.id} value={p.id.toString()}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+          <PropertyChip
+            properties={properties ?? []}
+            currentPropertyId={currentPropertyId}
+            onSelect={(id) => setCurrentPropertyId(id)}
+            isAdmin={isAdmin}
+            onAddProperty={() => setAddPropertyOpen(true)}
+            onDeleteProperty={() => setDeletePropertyOpen(true)}
+          />
+
           {isAdmin && (
-            <>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2">
               <Button
-                variant="outline"
-                onClick={() => setAddPropertyOpen(true)}
-                className="rounded-xl border-white/15 bg-white/5 hover:bg-white/10"
+                onClick={() => setManualBillOpen(true)}
+                disabled={currentPropertyId === null}
+                className="w-full rounded-xl border border-white/10 bg-white/5 text-foreground hover:bg-white/10 hover:text-foreground font-medium shadow-none sm:w-auto"
               >
-                Add property
+                <Pencil className="h-3.5 w-3.5 mr-2" />
+                Manual entry
               </Button>
-              {currentPropertyId !== null && (
-                <Button
-                  variant="outline"
-                  onClick={() => setManualBillOpen(true)}
-                  className="rounded-xl border-white/15 bg-white/5 hover:bg-white/10"
-                >
-                  Manual entry
-                </Button>
-              )}
               <Button
                 onClick={() => setUploadOpen(true)}
                 disabled={currentPropertyId === null}
-                className="rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full rounded-xl font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 sm:w-auto"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <UploadCloud className="h-3.5 w-3.5 mr-2" />
                 Upload Bill
               </Button>
-            </>
+            </div>
           )}
         </div>
       </motion.header>
@@ -394,6 +381,60 @@ export default function UtilitiesPage() {
         onOpenChange={setSetBudgetOpen}
         propertyId={currentPropertyId}
       />
+
+      <Dialog open={deletePropertyOpen} onOpenChange={setDeletePropertyOpen}>
+        <DialogContent className="rounded-[20px] border-white/10 bg-neutral-950 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold tracking-tight">
+              Delete property?
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400">
+              {(() => {
+                const p = properties?.find((x) => x.id === currentPropertyId);
+                return p
+                  ? `"${p.name}" will be hidden from the list. Historical bills remain accessible.`
+                  : "This property will be hidden from the list.";
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setDeletePropertyOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={deleteProperty.isPending || currentPropertyId === null}
+              onClick={async () => {
+                if (currentPropertyId === null) return;
+                const target = properties?.find((p) => p.id === currentPropertyId);
+                try {
+                  await deleteProperty.mutateAsync(currentPropertyId);
+                  toast.success("Property deleted", {
+                    description: target?.name ?? `#${currentPropertyId}`,
+                  });
+                  setDeletePropertyOpen(false);
+                  // Next active property will be auto-selected by the existing effect.
+                  setCurrentPropertyId(null);
+                } catch (e) {
+                  toast.error("Couldn't delete property", {
+                    description: e instanceof Error ? e.message : String(e),
+                  });
+                }
+              }}
+              className="rounded-xl font-semibold bg-crimson text-primary-foreground hover:bg-crimson/90"
+            >
+              {deleteProperty.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
@@ -403,6 +444,97 @@ export default function UtilitiesPage() {
 function formatMoney(n: number, currency = "CAD") {
   const f = n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return currency === "CAD" ? `$${f}` : `$${f} ${currency}`;
+}
+
+function PropertyChip({
+  properties, currentPropertyId, onSelect, isAdmin, onAddProperty, onDeleteProperty,
+}: {
+  properties: Property[];
+  currentPropertyId: number | null;
+  onSelect: (id: number) => void;
+  isAdmin: boolean;
+  onAddProperty: () => void;
+  onDeleteProperty: () => void;
+}) {
+  const current = properties.find((p) => p.id === currentPropertyId);
+  const label = current?.name ?? (properties.length === 0 ? "No property" : "Select property");
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="group flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-auto"
+        >
+          <HomeIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="flex-1 truncate text-left text-sm font-medium text-foreground sm:max-w-[160px]">
+            {label}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="w-64 rounded-xl border-white/10 bg-neutral-950/95 backdrop-blur-xl"
+      >
+        {properties.length > 0 && (
+          <>
+            <DropdownMenuLabel className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Switch property
+            </DropdownMenuLabel>
+            {properties.map((p) => {
+              const active = p.id === currentPropertyId;
+              return (
+                <DropdownMenuItem
+                  key={p.id}
+                  onClick={() => onSelect(p.id)}
+                  className={cn(
+                    "flex items-start gap-2 rounded-lg cursor-pointer",
+                    active && "bg-primary/10 text-primary focus:bg-primary/15",
+                  )}
+                >
+                  <Check
+                    className={cn(
+                      "h-3.5 w-3.5 mt-0.5 shrink-0",
+                      active ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium truncate">{p.name}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">
+                      {p.address}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              );
+            })}
+          </>
+        )}
+
+        {isAdmin && (
+          <>
+            {properties.length > 0 && <DropdownMenuSeparator className="bg-white/10" />}
+            <DropdownMenuItem
+              onClick={onAddProperty}
+              className="rounded-lg cursor-pointer text-emerald focus:text-emerald focus:bg-emerald/10"
+            >
+              <Plus className="h-3.5 w-3.5 mr-2" />
+              Add property
+            </DropdownMenuItem>
+            {current && (
+              <DropdownMenuItem
+                onClick={onDeleteProperty}
+                className="rounded-lg cursor-pointer text-crimson focus:text-crimson focus:bg-crimson/10"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                Delete &ldquo;{current.name}&rdquo;
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function StatCard({
@@ -437,6 +569,7 @@ function BillsTable({ bills }: { bills: UtilityBill[] }) {
             <TableHead className="text-muted-foreground font-medium">Status</TableHead>
             <TableHead className="text-muted-foreground font-medium">Extraction</TableHead>
             <TableHead className="text-right text-muted-foreground font-medium">Total</TableHead>
+            <TableHead className="w-10 sr-only">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -450,38 +583,203 @@ function BillsTable({ bills }: { bills: UtilityBill[] }) {
 }
 
 function BillRow({ bill }: { bill: UtilityBill }) {
-  const statement = bill.statement_date ? new Date(bill.statement_date) : null;
-  const due = bill.due_date ? new Date(bill.due_date) : null;
+  const router = useRouter();
+  const reextract = useReextract();
+  const del = useDeleteBill();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const parse = (v: string | null | undefined): Date | null => {
+    if (!v) return null;
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime()) || d.getFullYear() < 1900) return null;
+    return d;
+  };
+  const statement = parse(bill.statement_date);
+  const due = parse(bill.due_date);
   const fmt = (d: Date | null) => {
-    if (!d || Number.isNaN(d.getTime())) return "—";
+    if (!d) return "—";
     return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   };
+
+  const canReextract = bill.ingestion_source !== "manual_entry";
+
+  const handleView = () => router.push(`/utilities/${bill.id}`);
+  const handleReextract = async () => {
+    try {
+      await reextract.mutateAsync(bill.id);
+      toast.success("Re-extraction queued", {
+        description: "We'll update the bill when it's done.",
+      });
+    } catch (e) {
+      toast.error("Couldn't re-extract", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+  const handleConfirmDelete = async () => {
+    try {
+      await del.mutateAsync({ id: bill.id });
+      toast.success("Bill deleted", { description: `Statement ${fmt(statement)}` });
+      setDeleteOpen(false);
+    } catch (e) {
+      toast.error("Couldn't delete bill", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+
+  // Actions rendered twice — once inside the right-click ContextMenu, once inside
+  // the row's trailing `…` dropdown — because Radix ContextMenu and DropdownMenu
+  // require their own item components.
+  const ctxItems = (
+    <>
+      <ContextMenuItem onSelect={handleView} className="gap-2 cursor-pointer">
+        <Eye className="h-3.5 w-3.5" />
+        View bill
+      </ContextMenuItem>
+      {canReextract && (
+        <ContextMenuItem
+          onSelect={handleReextract}
+          disabled={reextract.isPending}
+          className="gap-2 cursor-pointer"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", reextract.isPending && "animate-spin")} />
+          Re-extract
+        </ContextMenuItem>
+      )}
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        onSelect={(e) => {
+          e.preventDefault();
+          setDeleteOpen(true);
+        }}
+        className="gap-2 cursor-pointer text-crimson focus:text-crimson focus:bg-crimson/10"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        Delete bill
+      </ContextMenuItem>
+    </>
+  );
+
+  const dropdownItems = (
+    <>
+      <DropdownMenuItem onSelect={handleView} className="gap-2 cursor-pointer">
+        <Eye className="h-3.5 w-3.5" />
+        View bill
+      </DropdownMenuItem>
+      {canReextract && (
+        <DropdownMenuItem
+          onSelect={handleReextract}
+          disabled={reextract.isPending}
+          className="gap-2 cursor-pointer"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", reextract.isPending && "animate-spin")} />
+          Re-extract
+        </DropdownMenuItem>
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onSelect={(e) => {
+          e.preventDefault();
+          setDeleteOpen(true);
+        }}
+        className="gap-2 cursor-pointer text-crimson focus:text-crimson focus:bg-crimson/10"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        Delete bill
+      </DropdownMenuItem>
+    </>
+  );
+
   return (
-    <TableRow className="border-white/5 hover:bg-white/5 transition-colors">
-      <TableCell>
-        <Link href={`/utilities/${bill.id}`} className="block font-medium">{fmt(statement)}</Link>
-      </TableCell>
-      <TableCell>
-        <Link href={`/utilities/${bill.id}`} className="block text-muted-foreground" tabIndex={-1}>
-          {fmt(due)}
-        </Link>
-      </TableCell>
-      <TableCell>
-        <Link href={`/utilities/${bill.id}`} tabIndex={-1} className="inline-block">
-          <PaymentBadge status={bill.payment_status} />
-        </Link>
-      </TableCell>
-      <TableCell>
-        <Link href={`/utilities/${bill.id}`} tabIndex={-1} className="inline-block">
-          <ExtractionBadge status={bill.extraction_status} />
-        </Link>
-      </TableCell>
-      <TableCell className="text-right font-semibold tabular-nums">
-        <Link href={`/utilities/${bill.id}`} tabIndex={-1} className="block">
-          {formatMoney(bill.total_amount, bill.currency)}
-        </Link>
-      </TableCell>
-    </TableRow>
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <TableRow className="border-white/5 hover:bg-white/5 transition-colors">
+            <TableCell>
+              <Link href={`/utilities/${bill.id}`} className="block font-medium">{fmt(statement)}</Link>
+            </TableCell>
+            <TableCell>
+              <Link href={`/utilities/${bill.id}`} className="block text-muted-foreground" tabIndex={-1}>
+                {fmt(due)}
+              </Link>
+            </TableCell>
+            <TableCell>
+              <Link href={`/utilities/${bill.id}`} tabIndex={-1} className="inline-block">
+                <PaymentBadge status={bill.payment_status} />
+              </Link>
+            </TableCell>
+            <TableCell>
+              <Link href={`/utilities/${bill.id}`} tabIndex={-1} className="inline-block">
+                <ExtractionBadge status={bill.extraction_status} />
+              </Link>
+            </TableCell>
+            <TableCell className="text-right font-semibold tabular-nums">
+              <Link href={`/utilities/${bill.id}`} tabIndex={-1} className="block">
+                {formatMoney(bill.total_amount, bill.currency)}
+              </Link>
+            </TableCell>
+            <TableCell className="w-10 pr-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Bill actions"
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-44 rounded-xl border-white/10 bg-neutral-950/95 backdrop-blur-xl"
+                >
+                  {dropdownItems}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48 rounded-xl border-white/10 bg-neutral-950/95 backdrop-blur-xl">
+          {ctxItems}
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="rounded-[20px] border-white/10 bg-neutral-950 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold tracking-tight">
+              Delete this bill?
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400">
+              Statement {fmt(statement)} — {formatMoney(bill.total_amount, bill.currency)}. This
+              hides the bill from lists and reports; the PDF and extraction data remain.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={del.isPending}
+              onClick={handleConfirmDelete}
+              className="rounded-xl font-semibold bg-crimson text-primary-foreground hover:bg-crimson/90"
+            >
+              {del.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { staggerContainer, fadeUpItem } from "@/lib/motion";
 import { useFleet } from "@/hooks/useFleet";
 import CpuMatrix from "@/components/dashboard/CpuMatrix";
 import MemoryGauge from "@/components/dashboard/MemoryGauge";
@@ -15,14 +16,8 @@ import { Wifi, Thermometer, Brain, Cpu, Laptop, AlertTriangle } from "lucide-rea
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SystemStatus } from "@/hooks/useSystemStatus";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
-};
+const container = staggerContainer(0.06);
+const item = fadeUpItem;
 // ✅ Returns {label, color} — was incorrectly returning a plain string
 function getSignalQuality(dbm: number) {
   if (dbm > -40) return { label: "Ultra Stable", color: "text-cyan" };

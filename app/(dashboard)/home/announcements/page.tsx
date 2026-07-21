@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { staggerContainer, springItem } from "@/lib/motion";
 import {
   ChevronLeft,
   Clock,
@@ -70,27 +71,8 @@ const priorityIcon: Record<string, boolean> = {
 
 // ── Animation variants ──────────────────────────────────
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, scale: 0.98, y: 10 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 300,
-      damping: 25,
-    },
-  },
-};
+const container = staggerContainer(0.05);
+const item = springItem;
 
 const TABS = ["all", "general", "maintenance", "security", "event"];
 

@@ -247,12 +247,13 @@ const LoginPage = () => {
           {/* Email (hidden in PIN mode) */}
           {!usePin && (
             <div className="space-y-1.5">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+              <label htmlFor="login-email" className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
                 Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -267,12 +268,13 @@ const LoginPage = () => {
           {/* Password or PIN */}
           {!usePin ? (
             <div className="space-y-1.5">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+              <label htmlFor="login-password" className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
+                  id="login-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -284,12 +286,13 @@ const LoginPage = () => {
             </div>
           ) : (
             <div className="space-y-1.5">
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
+              <label htmlFor="pin-email" className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
                 Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
+                  id="pin-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -298,11 +301,12 @@ const LoginPage = () => {
                   autoComplete="email"
                 />
               </div>
-              <label className="text-xs font-mono text-muted-foreground uppercase tracking-wider mt-2">
+              <label htmlFor="login-pin" className="text-xs font-mono text-muted-foreground uppercase tracking-wider mt-2">
                 Guest PIN
               </label>
               <div className="relative">
                 <input
+                  id="login-pin"
                   type="tel"
                   inputMode="numeric"
                   maxLength={6}

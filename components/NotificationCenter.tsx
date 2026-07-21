@@ -94,6 +94,7 @@ function ReminderForm({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close reminder"
           className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
         >
           <X className="w-3.5 h-3.5" />
@@ -155,6 +156,7 @@ export default function NotificationCenter() {
     <Popover>
       <PopoverTrigger asChild>
         <motion.button
+          aria-label="Notifications"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className={`p-2 rounded-lg transition-colors relative ${
