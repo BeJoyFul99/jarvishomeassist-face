@@ -21,6 +21,9 @@ const NetworkSecurity = ({ status }: NetworkSecurityProps) => {
           <h3 className="text-sm font-medium text-foreground">Port Sentry</h3>
         </div>
         <div className="space-y-2">
+          {(!status.ports || status.ports.length === 0) && (
+            <p className="text-xs text-muted-foreground py-2">No listening ports detected.</p>
+          )}
           {status.ports?.map((p) => (
             <div key={p.port} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
               <div className="flex items-center gap-2.5">
@@ -45,6 +48,9 @@ const NetworkSecurity = ({ status }: NetworkSecurityProps) => {
           <h3 className="text-sm font-medium text-foreground">Active Connections</h3>
         </div>
         <div className="space-y-2">
+          {(!status.ssh_attempts || status.ssh_attempts.length === 0) && (
+            <p className="text-xs text-muted-foreground py-2">No active inbound connections.</p>
+          )}
           {status.ssh_attempts?.map((attempt, i) => (
             <motion.div
               key={i}

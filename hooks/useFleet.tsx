@@ -54,12 +54,20 @@ export function useFleet() {
       const mapped = mapBackendStatus(msg.data);
       applyRef.current(mapped);
 
+      // Real one-line heartbeat summary for the Agent Feed.
+      const cores = mapped.cpu?.usage ?? [];
+      const cpuAvg = cores.length
+        ? Math.round(cores.reduce((a, b) => a + b, 0) / cores.length)
+        : 0;
+      const ramUsed = mapped.ram?.used ?? 0;
+      const ramTotal = mapped.ram?.total ?? 0;
+      const conns = mapped.network?.sshAttempts?.length ?? 0;
       addLogRef.current({
         nodeId: "node-01",
         nodeName: mapped.name || "node-01",
-        message: "Status update received",
+        message: `CPU ${cpuAvg}% · RAM ${ramUsed.toFixed(1)}/${ramTotal.toFixed(0)}GB · ${conns} conn`,
         timestamp: new Date().toISOString(),
-        type: "pulse",
+        type: cpuAvg > 90 ? "warning" : "pulse",
       });
     };
 

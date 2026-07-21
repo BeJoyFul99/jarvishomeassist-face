@@ -218,10 +218,22 @@ export function mapBackendStatus(data: any): Partial<FleetNode> {
     },
     network: {
       wifiSignal: data.network?.signal_dbm || -50,
-      ports: [],
-      sshAttempts: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ports: (data.network?.port_sentry || []).map((p: any) => ({
+        port: p.port,
+        service: p.service || "TCP",
+        open: p.open !== false,
+      })),
+      // "Active Connections" — real inbound established sessions to this server
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sshAttempts: (data.network?.connections || []).map((c: any) => ({
+        ip: c.remote || c.ip,
+        timestamp: c.timestamp,
+        success: c.success !== false,
+      })),
       bandwidth: { up: 0, down: 0 },
     },
+    logs: Array.isArray(data.logs) ? data.logs : [],
     ai: {
       status: aiStatusMap[data.ai_engine?.status] || "idle",
       model: data.ai_engine?.active_model || "None",
