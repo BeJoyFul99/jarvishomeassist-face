@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Network, Shield, Clock } from "lucide-react";
+import { Network, Shield } from "lucide-react";
 import type { SystemStatus } from "@/hooks/useSystemStatus";
 
 interface NetworkSecurityProps {
@@ -7,11 +7,6 @@ interface NetworkSecurityProps {
 }
 
 const NetworkSecurity = ({ status }: NetworkSecurityProps) => {
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  };
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Port Sentry */}
@@ -59,14 +54,15 @@ const NetworkSecurity = ({ status }: NetworkSecurityProps) => {
               transition={{ delay: i * 0.05 }}
               className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg"
             >
-              <div className="flex items-center gap-2.5">
-                <span className={`w-2 h-2 rounded-full ${attempt.success ? "bg-emerald" : "bg-crimson"}`} />
-                <span className="font-mono text-sm text-foreground">{attempt.ip}</span>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${attempt.success ? "bg-emerald pulse-dot" : "bg-crimson"}`} />
+                <span className="font-mono text-sm text-foreground truncate">{attempt.ip}</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                {formatTime(attempt.timestamp)}
-              </div>
+              {attempt.service && (
+                <span className="status-badge text-[10px] bg-secondary text-muted-foreground shrink-0">
+                  {attempt.service}
+                </span>
+              )}
             </motion.div>
           ))}
         </div>

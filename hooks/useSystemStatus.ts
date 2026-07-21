@@ -17,7 +17,7 @@ export interface SystemStatus {
   context_max: number;
   active_model: string;
   ports: { port: number; service: string; open: boolean }[];
-  ssh_attempts: { ip: string; timestamp: string; success: boolean }[];
+  ssh_attempts: { ip: string; timestamp: string; success: boolean; service?: string }[];
   logs: string[];
 }
 

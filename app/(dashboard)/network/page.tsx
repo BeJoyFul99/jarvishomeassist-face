@@ -6,6 +6,7 @@ import { staggerContainer, springItem } from "@/lib/motion";
 import {
   Globe,
   Wifi,
+  Laptop,
   Lock,
   Users,
   Pencil,
@@ -171,6 +172,7 @@ const WifiEditCard = ({
 
 export default function NetworkPage() {
   const { activeNode } = useFleet();
+  const net = activeNode.network;
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canManageNetwork = hasPermission("network:manage");
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
@@ -287,6 +289,83 @@ export default function NetworkPage() {
           )}
         </motion.div>
 
+        {/* Devices on Network */}
+        <motion.div variants={item}>
+          <div className="flex items-center gap-2 mb-3">
+            <Globe className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-medium text-foreground">
+              Devices on Network
+            </h3>
+            {net.lanDevices.length > 0 && (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {net.lanDevices.length}
+              </span>
+            )}
+          </div>
+          {net.lanDevices.length === 0 ? (
+            <div className="glass-card p-6 text-center text-sm text-muted-foreground">
+              No devices detected yet. Connect the router (set ROUTER_PASSWORD)
+              for the full client list, or run the backend natively so it can
+              read the local network.
+            </div>
+          ) : (
+            <div className="glass-card-hover overflow-hidden">
+              <div className="grid grid-cols-[1fr_140px_100px_70px] gap-2 px-4 py-2.5 border-b border-border text-[11px] text-muted-foreground font-medium">
+                <span>Device</span>
+                <span>MAC</span>
+                <span>Link</span>
+                <span className="text-right">Status</span>
+              </div>
+              <div className="max-h-[420px] overflow-y-auto">
+                {net.lanDevices.map((d) => (
+                  <div
+                    key={d.ip + d.mac}
+                    className="grid grid-cols-[1fr_140px_100px_70px] gap-2 px-4 py-2.5 items-center border-b border-border/40 hover:bg-secondary/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {d.interface === "wifi" ? (
+                        <Wifi className="w-4 h-4 text-cyan shrink-0" />
+                      ) : (
+                        <Laptop className="w-4 h-4 text-primary shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm text-foreground truncate">
+                          {d.name || d.ip}
+                        </div>
+                        {d.name && (
+                          <div className="text-[10px] font-mono text-muted-foreground truncate">
+                            {d.ip}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="font-mono text-[11px] text-muted-foreground truncate">
+                      {d.mac}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {d.interface === "wifi"
+                        ? "WiFi"
+                        : d.interface === "wired"
+                          ? "Wired"
+                          : "—"}
+                    </span>
+                    <span className="flex justify-end">
+                      <span
+                        className={`status-badge text-[10px] ${d.active !== false ? "bg-emerald/10 text-emerald" : "bg-secondary text-muted-foreground"}`}
+                      >
+                        {d.active !== false ? "ONLINE" : "IDLE"}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Live from your router when connected, otherwise devices this host
+            has recently seen.
+          </p>
+        </motion.div>
       </motion.div>
     </div>
   );

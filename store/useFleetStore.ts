@@ -26,7 +26,7 @@ export interface FleetNode {
     wifiQuality: string;
     ssid: string;
     ports: { port: number; service: string; open: boolean }[];
-    sshAttempts: { ip: string; timestamp: string; success: boolean }[];
+    sshAttempts: { ip: string; timestamp: string; success: boolean; service?: string }[];
     lanDevices: {
       name?: string;
       ip: string;
@@ -240,6 +240,7 @@ export function mapBackendStatus(data: any): Partial<FleetNode> {
         ip: c.remote || c.ip,
         timestamp: c.timestamp,
         success: c.success !== false,
+        service: c.service || "",
       })),
       // Real devices on the local network (router client list or ARP neighbors)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -83,6 +83,7 @@ export async function GET() {
           ip: c.remote || c.ip,
           timestamp: c.timestamp,
           success: c.success !== false,
+          service: c.service || "",
         })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         lanDevices: (data.network?.lan_devices || []).map((d: any) => ({
