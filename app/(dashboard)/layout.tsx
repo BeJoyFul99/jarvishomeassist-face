@@ -10,7 +10,7 @@ import UserProfileDropdown from "@/components/UserProfileDropdown";
 import NotificationCenter from "@/components/NotificationCenter";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Wifi, Shield, Cpu, HardDrive, Brain } from "lucide-react";
-import { useFleet } from "@/hooks/useFleet";
+import { useFleet, useFleetStream } from "@/hooks/useFleet";
 
 import { useFleetNotifications } from "@/hooks/useFleetNotifications";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
@@ -31,6 +31,7 @@ function getSignalQuality(dbm: number) {
 }
 
 const DashboardInner = ({ children }: { children: React.ReactNode }) => {
+  useFleetStream(); // single SSE subscription for the whole dashboard
   const { activeNode, aggregated } = useFleet();
   const { setIsMobile, initialize } = useSidebarStore();
   const isMobile = useIsMobile();

@@ -9,33 +9,22 @@ import {
 import { useAuthStore } from "@/store/useAuthStore";
 import { sseClient, type SSEMessage } from "@/lib/sseClient";
 
-export function useFleet() {
-  const {
-    nodes,
-    activeNodeId,
-    agentFeed,
-    loadBalancerEnabled,
-    setActiveNodeId,
-    setLoadBalancerEnabled,
-    addLog,
-    applyBackendData,
-    setApiError,
-    isInitialLoad,
-    isApiError,
-    refresh,
-  } = useFleetStore();
-
-  const activeNode = useActiveNode();
-  const aggregated = useAggregatedStats();
+/**
+ * useFleetStream owns the single SSE subscription that feeds the fleet store
+ * and appends one Agent-Feed heartbeat per tick. Mount it EXACTLY ONCE (in the
+ * dashboard layout). Calling it from every consumer would multiply the feed
+ * entries (one per mount) — that's why useFleet() below is subscription-free.
+ */
+export function useFleetStream() {
+  const addLog = useFleetStore((s) => s.addLog);
+  const applyBackendData = useFleetStore((s) => s.applyBackendData);
+  const refresh = useFleetStore((s) => s.refresh);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // Refs to avoid re-triggering the effect when callbacks change
   const addLogRef = useRef(addLog);
   addLogRef.current = addLog;
   const applyRef = useRef(applyBackendData);
   applyRef.current = applyBackendData;
-  const setApiErrorRef = useRef(setApiError);
-  setApiErrorRef.current = setApiError;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -72,11 +61,27 @@ export function useFleet() {
     };
 
     const unsubscribe = sseClient.subscribe(handler);
-
     return () => {
       unsubscribe();
     };
   }, [isAuthenticated, refresh]);
+}
+
+/** Subscription-free reader for fleet state. Safe to call from any component. */
+export function useFleet() {
+  const {
+    nodes,
+    activeNodeId,
+    agentFeed,
+    loadBalancerEnabled,
+    setActiveNodeId,
+    setLoadBalancerEnabled,
+    isInitialLoad,
+    isApiError,
+  } = useFleetStore();
+
+  const activeNode = useActiveNode();
+  const aggregated = useAggregatedStats();
 
   return {
     nodes,

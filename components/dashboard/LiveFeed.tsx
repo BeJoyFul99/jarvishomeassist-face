@@ -18,6 +18,8 @@ const LiveFeed = ({ logs }: LiveFeedProps) => {
     if (log.includes("[WARN]")) return "text-amber";
     if (log.includes("[ERROR]")) return "text-crimson";
     if (log.includes("[DEBUG]")) return "text-muted-foreground";
+    if (log.includes("[APP]")) return "text-cyan";
+    if (log.includes("[SSH]")) return "text-magenta";
     return "text-emerald/70";
   };
 
@@ -26,7 +28,7 @@ const LiveFeed = ({ logs }: LiveFeedProps) => {
       <div className="px-4 py-2 border-b border-border flex items-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
         <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
-          Live Feed
+          Sessions · Live Feed
         </span>
       </div>
       <div ref={scrollRef} className="px-4 py-3 max-h-28 overflow-y-auto">

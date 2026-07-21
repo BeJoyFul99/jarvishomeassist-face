@@ -202,12 +202,12 @@ export default function DashboardPage() {
           {/* Network & Security + Cluster Map */}
           <motion.div
             variants={item}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+            className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start"
           >
             <div className="lg:col-span-2">
               <NetworkSecurity status={status} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 items-start">
               <ClusterMap />
               <div className="glass-card-hover p-4 flex items-center justify-between gap-3">
                 <div>
