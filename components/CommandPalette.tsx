@@ -19,6 +19,7 @@ import {
   adminConfigItems,
   memberItems,
   memberConfigItems,
+  toolsItems,
   userManagementItem,
   type NavItem,
 } from "@/lib/navigation";
@@ -51,6 +52,7 @@ export function CommandPalette() {
     ? [
         { label: "Overview", items: adminMainItems },
         { label: "Systems", items: adminSystemItems },
+        { label: "Tools", items: toolsItems },
         { label: "Configuration", items: adminConfigItems },
       ]
     : [
@@ -58,6 +60,9 @@ export function CommandPalette() {
           label: "Home",
           items: memberItems.filter((i) => !i.perm || hasPermission(i.perm)),
         },
+        ...(effectiveRole !== "guest"
+          ? [{ label: "Tools", items: toolsItems }]
+          : []),
         {
           label: "Account",
           items: [

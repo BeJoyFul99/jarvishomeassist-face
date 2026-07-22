@@ -17,6 +17,7 @@ import {
   adminConfigItems,
   memberItems,
   memberConfigItems,
+  toolsItems,
   userManagementItem,
   type NavItem,
 } from "@/lib/navigation";
@@ -229,6 +230,7 @@ export function AppSidebar() {
 
             {renderNavGroup("Overview", adminMainItems)}
             {renderNavGroup("Systems", adminSystemItems)}
+            {renderNavGroup("Tools", toolsItems)}
             {renderNavGroup("Configuration", adminConfigItems)}
           </>
         ) : (
@@ -237,6 +239,7 @@ export function AppSidebar() {
               "Home",
               memberItems.filter((i) => !i.perm || hasPermission(i.perm)),
             )}
+            {!isGuest && renderNavGroup("Tools", toolsItems)}
             {renderNavGroup("Account", [
               ...memberConfigItems,
               ...(canViewUsers ? [userManagementItem] : []),

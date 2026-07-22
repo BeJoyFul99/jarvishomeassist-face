@@ -349,3 +349,33 @@ button:hover {
 .prose-sm code {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
+
+/* ── Resume Builder: print-to-PDF ─────────────────────────────
+   The tools/resume page portals a print-only copy of the resume
+   directly under <body>. On screen it is hidden; when printing,
+   everything else is removed so only the resume document prints. */
+.resume-print-root {
+  display: none;
+}
+
+@media print {
+  body > *:not(.resume-print-root) {
+    display: none !important;
+  }
+  .resume-print-root {
+    display: block !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .resume-print-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@page {
+  size: letter;
+  margin: 0.5in 0.35in;
+}

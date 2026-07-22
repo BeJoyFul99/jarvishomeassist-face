@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Brain, MessageCircle, Receipt, Loader2, Eye, Check } from "lucide-react";
+import { Brain, MessageCircle, Receipt, FileText, Loader2, Eye, Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -32,6 +32,13 @@ const FEATURES = [
     capability: "vision",
     icon: Receipt,
     color: "text-amber",
+  },
+  {
+    settingKey: "ai_resume_model",
+    label: "Resume Builder",
+    capability: "chat",
+    icon: FileText,
+    color: "text-emerald",
   },
 ] as const;
 
@@ -64,10 +71,14 @@ export default function ModelLibrary() {
         const sel: Record<string, string> = {};
         const settings = settingsRes.ok ? await settingsRes.json() : {};
         for (const f of FEATURES) {
+          const defaultKey =
+            f.settingKey === "ai_chat_model"
+              ? "chat"
+              : f.settingKey === "ai_bill_model"
+                ? "bill_extract"
+                : "resume";
           sel[f.settingKey] =
-            settings[f.settingKey] ||
-            modelsData.defaults?.[f.settingKey === "ai_chat_model" ? "chat" : "bill_extract"] ||
-            "";
+            settings[f.settingKey] || modelsData.defaults?.[defaultKey] || "";
         }
         setSelection(sel);
       } catch {

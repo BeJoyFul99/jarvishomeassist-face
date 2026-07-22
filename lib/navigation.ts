@@ -16,6 +16,7 @@ import {
   MessageCircle,
   Megaphone,
   Receipt,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,6 +48,11 @@ export const adminConfigItems: NavItem[] = [
   { title: "User Management", url: "/users", icon: Users },
   { title: "Server Settings", url: "/settings", icon: Settings },
   { title: "Preferences", url: "/preferences", icon: SlidersHorizontal },
+];
+
+// Tools — shared by admins and family members (owner-scoped data; no guests)
+export const toolsItems: NavItem[] = [
+  { title: "Resume Builder", url: "/tools/resume", icon: FileText },
 ];
 
 // Family member navigation
