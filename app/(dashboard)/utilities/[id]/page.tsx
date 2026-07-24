@@ -155,6 +155,62 @@ function EditableAmount({
   );
 }
 
+function EditableText({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className={`bg-transparent border-b border-white/20 focus:border-white/60 focus:outline-none text-right ${className ?? ""}`}
+    />
+  );
+}
+
+/** Convert a backend ISO/RFC3339 date to the YYYY-MM-DD a date input expects. */
+function toDateInputValue(iso: string | null | undefined): string {
+  const d = parseBillDate(iso);
+  if (!d) return "";
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Convert a date input's YYYY-MM-DD back to an RFC3339 timestamp the API accepts. */
+function fromDateInputValue(v: string): string {
+  return v ? `${v}T00:00:00Z` : "";
+}
+
+function EditableDate({
+  value,
+  onChange,
+  className,
+}: {
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  return (
+    <input
+      type="date"
+      value={toDateInputValue(value)}
+      onChange={(e) => onChange(fromDateInputValue(e.target.value))}
+      className={`bg-transparent border-b border-white/20 focus:border-white/60 focus:outline-none tabular-nums [color-scheme:dark] ${className ?? ""}`}
+    />
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BillDetailPage(props: {
@@ -319,6 +375,8 @@ export default function BillDetailPage(props: {
         <HeroLeft
           bill={bill}
           editing={editing}
+          billEdits={billEdits}
+          setBillEdits={setBillEdits}
           effectiveTotalAmount={effectiveTotalAmount}
           effectiveLateFees={effectiveLateFees}
           onTotalAmountChange={(n) => setBillEdits((prev) => ({ ...prev, total_amount: n }))}
@@ -356,8 +414,19 @@ export default function BillDetailPage(props: {
         className="grid grid-cols-1 gap-3 md:grid-cols-2"
         aria-label="Statement details and payment activity"
       >
-        <StatementDetailsCard bill={bill} property={property} />
-        <PaymentActivityCard bill={bill} />
+        <StatementDetailsCard
+          bill={bill}
+          property={property}
+          editing={editing}
+          billEdits={billEdits}
+          setBillEdits={setBillEdits}
+        />
+        <PaymentActivityCard
+          bill={bill}
+          editing={editing}
+          billEdits={billEdits}
+          setBillEdits={setBillEdits}
+        />
       </motion.section>
 
       {/* Tier 2 — Utility Cards */}
@@ -447,6 +516,8 @@ function BackLink() {
 function HeroLeft({
   bill,
   editing,
+  billEdits,
+  setBillEdits,
   effectiveTotalAmount,
   effectiveLateFees,
   onTotalAmountChange,
@@ -454,6 +525,8 @@ function HeroLeft({
 }: {
   bill: UtilityBill;
   editing: boolean;
+  billEdits: Partial<UtilityBill>;
+  setBillEdits: React.Dispatch<React.SetStateAction<Partial<UtilityBill>>>;
   effectiveTotalAmount: number;
   effectiveLateFees: number;
   onTotalAmountChange: (n: number) => void;
@@ -464,6 +537,8 @@ function HeroLeft({
   const daysToDue = due ? daysBetween(due, today) : null;
   const periodStart = parseBillDate(bill.billing_period_start);
   const periodEnd = parseBillDate(bill.billing_period_end);
+  const effPeriodStart = billEdits.billing_period_start ?? bill.billing_period_start;
+  const effPeriodEnd = billEdits.billing_period_end ?? bill.billing_period_end;
 
   return (
     <div className="glass-card p-5 flex flex-col justify-between">
@@ -487,7 +562,22 @@ function HeroLeft({
             {money(bill.total_amount, bill.currency)}
           </div>
         )}
-        {periodStart && periodEnd && (
+        {editing ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-neutral-400">
+            <span className="text-xs text-neutral-500">Period</span>
+            <EditableDate
+              value={effPeriodStart}
+              onChange={(v) => setBillEdits((prev) => ({ ...prev, billing_period_start: v }))}
+              className="text-sm"
+            />
+            <span>–</span>
+            <EditableDate
+              value={effPeriodEnd}
+              onChange={(v) => setBillEdits((prev) => ({ ...prev, billing_period_end: v }))}
+              className="text-sm"
+            />
+          </div>
+        ) : periodStart && periodEnd ? (
           <div className="mt-3 text-sm text-neutral-400">
             {periodStart.toLocaleDateString(undefined, {
               month: "short",
@@ -500,12 +590,11 @@ function HeroLeft({
               year: "numeric",
             })}
           </div>
-        )}
-        {(!periodStart || !periodEnd) && bill.extraction_status === "needs_review" && (
+        ) : bill.extraction_status === "needs_review" ? (
           <div className="mt-3 text-xs text-amber">
             Billing period couldn&apos;t be read. Edit the bill or re-extract.
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2 items-center">
@@ -642,12 +731,21 @@ function HeroRight({
 function StatementDetailsCard({
   bill,
   property,
+  editing,
+  billEdits,
+  setBillEdits,
 }: {
   bill: UtilityBill;
   property: Property | null;
+  editing: boolean;
+  billEdits: Partial<UtilityBill>;
+  setBillEdits: React.Dispatch<React.SetStateAction<Partial<UtilityBill>>>;
 }) {
-  const statement = parseBillDate(bill.statement_date);
-  const due = parseBillDate(bill.due_date);
+  const effType = billEdits.bill_type ?? bill.bill_type;
+  const effStatement = billEdits.statement_date ?? bill.statement_date;
+  const effDue = billEdits.due_date ?? bill.due_date;
+  const statement = parseBillDate(effStatement);
+  const due = parseBillDate(effDue);
   const fmtDate = (d: Date | null) =>
     d
       ? d.toLocaleDateString(undefined, {
@@ -662,7 +760,7 @@ function StatementDetailsCard({
     FINAL: "bg-crimson/10 text-crimson border-crimson/20",
   };
   const tone =
-    billTypeTone[bill.bill_type?.toUpperCase() ?? ""] ??
+    billTypeTone[effType?.toUpperCase() ?? ""] ??
     "bg-white/5 text-neutral-300 border-white/10";
 
   const rows: { label: string; value: React.ReactNode }[] = [
@@ -680,7 +778,14 @@ function StatementDetailsCard({
     },
     {
       label: "Bill type",
-      value: bill.bill_type ? (
+      value: editing ? (
+        <EditableText
+          value={effType ?? ""}
+          onChange={(v) => setBillEdits((prev) => ({ ...prev, bill_type: v }))}
+          placeholder="REGULAR"
+          className="text-sm w-32"
+        />
+      ) : bill.bill_type ? (
         <Badge variant="outline" className={`rounded-full px-2 py-0.5 text-[10px] ${tone}`}>
           {bill.bill_type}
         </Badge>
@@ -688,8 +793,30 @@ function StatementDetailsCard({
         <span className="text-neutral-500">—</span>
       ),
     },
-    { label: "Statement date", value: fmtDate(statement) },
-    { label: "Due date", value: fmtDate(due) },
+    {
+      label: "Statement date",
+      value: editing ? (
+        <EditableDate
+          value={effStatement}
+          onChange={(v) => setBillEdits((prev) => ({ ...prev, statement_date: v }))}
+          className="text-sm"
+        />
+      ) : (
+        fmtDate(statement)
+      ),
+    },
+    {
+      label: "Due date",
+      value: editing ? (
+        <EditableDate
+          value={effDue}
+          onChange={(v) => setBillEdits((prev) => ({ ...prev, due_date: v }))}
+          className="text-sm"
+        />
+      ) : (
+        fmtDate(due)
+      ),
+    },
   ];
 
   return (
@@ -716,19 +843,39 @@ function StatementDetailsCard({
 
 // ── Payment activity ──────────────────────────────────────────────────────────
 
-function PaymentActivityCard({ bill }: { bill: UtilityBill }) {
-  const prev = bill.previous_balance ?? 0;
-  const paid = bill.payments_received ?? 0;
-  const fwd = bill.balance_forward ?? 0;
-  const late = bill.late_fees ?? 0;
+function PaymentActivityCard({
+  bill,
+  editing,
+  billEdits,
+  setBillEdits,
+}: {
+  bill: UtilityBill;
+  editing: boolean;
+  billEdits: Partial<UtilityBill>;
+  setBillEdits: React.Dispatch<React.SetStateAction<Partial<UtilityBill>>>;
+}) {
+  const prev = billEdits.previous_balance ?? bill.previous_balance ?? 0;
+  const paid = billEdits.payments_received ?? bill.payments_received ?? 0;
+  const fwd = billEdits.balance_forward ?? bill.balance_forward ?? 0;
+  const late = billEdits.late_fees ?? bill.late_fees ?? 0;
   const hasAny = prev !== 0 || paid !== 0 || fwd !== 0 || late !== 0;
+
+  const patch = (k: keyof UtilityBill) => (n: number) =>
+    setBillEdits((p) => ({ ...p, [k]: n }));
 
   return (
     <div className="glass-card p-5 flex flex-col gap-3">
       <div className="text-sm font-medium text-muted-foreground">
         Payment activity
       </div>
-      {!hasAny ? (
+      {editing ? (
+        <div className="flex flex-col divide-y divide-white/5">
+          <EditablePaymentRow label="Previous balance" value={prev} onChange={patch("previous_balance")} />
+          <EditablePaymentRow label="Payment received" value={paid} onChange={patch("payments_received")} />
+          <EditablePaymentRow label="Balance forward" value={fwd} onChange={patch("balance_forward")} />
+          <EditablePaymentRow label="Late fees" value={late} onChange={patch("late_fees")} />
+        </div>
+      ) : !hasAny ? (
         <p className="text-sm text-neutral-500 py-4">
           No prior balance or payments on this bill.
         </p>
@@ -757,6 +904,23 @@ function PaymentActivityCard({ bill }: { bill: UtilityBill }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function EditablePaymentRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between py-2 text-sm">
+      <span className="text-neutral-400">{label}</span>
+      <EditableAmount value={value} onChange={onChange} className="text-sm text-right" />
     </div>
   );
 }
@@ -1037,32 +1201,77 @@ function UtilityCard({
       <div className="p-4 sm:p-5 space-y-2">
         {items.map((li) => {
           const currentAmount = lineEdits[li.id]?.amount ?? li.amount;
+          const currentDesc = lineEdits[li.id]?.description ?? li.description;
+          const currentUsage = lineEdits[li.id]?.usage_amount ?? li.usage_amount ?? 0;
+          const currentUnit = lineEdits[li.id]?.usage_unit ?? li.usage_unit ?? "";
+          const currentRate = lineEdits[li.id]?.rate ?? li.rate ?? 0;
+          const setField = (patch: Partial<UtilityBillLineItem>) =>
+            setLineEdits((prev) => ({
+              ...prev,
+              [li.id]: { ...prev[li.id], ...patch },
+            }));
           return (
             <div
               key={li.id}
               className="flex items-start justify-between gap-3 text-sm"
             >
               <div className="flex-1 min-w-0">
-                <div className="truncate font-medium">{li.description}</div>
-                {(li.usage_amount !== null || li.rate !== null) && (
-                  <div className="text-xs text-neutral-400 mt-0.5">
-                    {li.usage_amount !== null && li.usage_unit
-                      ? `${li.usage_amount.toLocaleString()} ${li.usage_unit}`
-                      : null}
-                    {li.usage_amount !== null && li.rate !== null ? " · " : ""}
-                    {li.rate !== null ? `@ $${li.rate.toFixed(5)}` : null}
+                {editing ? (
+                  <EditableText
+                    value={currentDesc}
+                    onChange={(v) => setField({ description: v })}
+                    placeholder="Description"
+                    className="text-sm font-medium w-full !text-left"
+                  />
+                ) : (
+                  <div className="truncate font-medium">{li.description}</div>
+                )}
+                {editing ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={currentUsage}
+                      onChange={(e) =>
+                        setField({ usage_amount: Number.parseFloat(e.target.value) || 0 })
+                      }
+                      className="bg-transparent border-b border-white/20 focus:border-white/60 focus:outline-none w-20 tabular-nums"
+                      aria-label="Usage amount"
+                    />
+                    <EditableText
+                      value={currentUnit}
+                      onChange={(v) => setField({ usage_unit: v })}
+                      placeholder="unit"
+                      className="w-14 !text-left"
+                    />
+                    <span>@ $</span>
+                    <input
+                      type="number"
+                      step="0.00001"
+                      value={currentRate}
+                      onChange={(e) =>
+                        setField({ rate: Number.parseFloat(e.target.value) || 0 })
+                      }
+                      className="bg-transparent border-b border-white/20 focus:border-white/60 focus:outline-none w-24 tabular-nums"
+                      aria-label="Rate"
+                    />
                   </div>
+                ) : (
+                  (li.usage_amount !== null || li.rate !== null) && (
+                    <div className="text-xs text-neutral-400 mt-0.5">
+                      {li.usage_amount !== null && li.usage_unit
+                        ? `${li.usage_amount.toLocaleString()} ${li.usage_unit}`
+                        : null}
+                      {li.usage_amount !== null && li.rate !== null ? " · " : ""}
+                      {li.rate !== null ? `@ $${li.rate.toFixed(5)}` : null}
+                    </div>
+                  )
                 )}
               </div>
               {editing ? (
                 <EditableAmount
                   value={currentAmount}
-                  onChange={(n) =>
-                    setLineEdits((prev) => ({
-                      ...prev,
-                      [li.id]: { ...prev[li.id], amount: n },
-                    }))
-                  }
+                  onChange={(n) => setField({ amount: n })}
                   className="text-sm"
                 />
               ) : (
