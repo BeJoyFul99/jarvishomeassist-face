@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { subscribeToPush, unsubscribeFromPush, isPushSubscribed } from "@/lib/pushManager";
 import { SettingsForm } from "@/components/SettingsForm";
 import { USER_PREFERENCES, buildDefaults } from "@/lib/settingsSchema";
+import { usePreferencesStore } from "@/store/usePreferencesStore";
 
 const container = staggerContainer(0.06);
 const item = springItem;
@@ -20,6 +21,7 @@ const DEFAULTS = buildDefaults(USER_PREFERENCES);
 export default function PreferencesPage() {
   const [values, setValues] = useState<Record<string, string>>(DEFAULTS);
   const [saving, setSaving] = useState(false);
+  const setCurrency = usePreferencesStore((s) => s.setCurrency);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission | "default">(
@@ -88,6 +90,9 @@ export default function PreferencesPage() {
         body: JSON.stringify(values),
       });
       if (!res.ok) throw new Error("Failed to save preferences");
+      // Push currency into the shared store so every page re-renders in the
+      // new format without a reload.
+      if (values.currency) setCurrency(values.currency);
       toast.success("Preferences saved", {
         description: "Your personal preferences have been updated.",
       });
@@ -108,6 +113,7 @@ export default function PreferencesPage() {
         body: JSON.stringify(DEFAULTS),
       });
       if (!res.ok) throw new Error("Failed to reset preferences");
+      if (DEFAULTS.currency) setCurrency(DEFAULTS.currency);
       toast.success("Preferences reset to defaults");
     } catch {
       toast.error("Failed to reset preferences");

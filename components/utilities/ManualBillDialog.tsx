@@ -10,8 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useManualCreateBill } from "@/lib/bills";
+import { CURRENCIES, currencySymbol } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 
 interface Props {
   open: boolean;
@@ -27,6 +32,7 @@ function todayIso() {
 export function ManualBillDialog({ open, onOpenChange, propertyId }: Props) {
   const router = useRouter();
   const create = useManualCreateBill();
+  const userCurrency = useCurrency();
 
   const [statementDate, setStatementDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState("");
@@ -36,7 +42,7 @@ export function ManualBillDialog({ open, onOpenChange, propertyId }: Props) {
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [previousBalance, setPreviousBalance] = useState<number>(0);
   const [lateFees, setLateFees] = useState<number>(0);
-  const [currency, setCurrency] = useState("CAD");
+  const [currency, setCurrency] = useState(userCurrency);
 
   useEffect(() => {
     if (open) {
@@ -48,9 +54,9 @@ export function ManualBillDialog({ open, onOpenChange, propertyId }: Props) {
       setTotalAmount(0);
       setPreviousBalance(0);
       setLateFees(0);
-      setCurrency("CAD");
+      setCurrency(userCurrency);
     }
-  }, [open]);
+  }, [open, userCurrency]);
 
   async function submit() {
     if (!propertyId || totalAmount <= 0) return;
@@ -95,11 +101,25 @@ export function ManualBillDialog({ open, onOpenChange, propertyId }: Props) {
           <DateField id="mb-pe" label="Period end" value={periodEnd} onChange={setPeriodEnd} />
 
           <TextField id="mb-type" label="Bill type" value={billType} onChange={setBillType} placeholder="REGULAR" />
-          <TextField id="mb-cur" label="Currency" value={currency} onChange={setCurrency} placeholder="CAD" />
+          <div className="space-y-1.5">
+            <Label htmlFor="mb-cur" className="text-xs text-neutral-400">Currency</Label>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger id="mb-cur" className="rounded-xl bg-white/5 border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <NumberField id="mb-total" label="Total amount *" value={totalAmount} onChange={setTotalAmount} />
-          <NumberField id="mb-prev" label="Previous balance" value={previousBalance} onChange={setPreviousBalance} />
-          <NumberField id="mb-late" label="Late fees" value={lateFees} onChange={setLateFees} />
+          <NumberField id="mb-total" label={`Total amount * (${currencySymbol(currency)})`} value={totalAmount} onChange={setTotalAmount} />
+          <NumberField id="mb-prev" label={`Previous balance (${currencySymbol(currency)})`} value={previousBalance} onChange={setPreviousBalance} />
+          <NumberField id="mb-late" label={`Late fees (${currencySymbol(currency)})`} value={lateFees} onChange={setLateFees} />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>

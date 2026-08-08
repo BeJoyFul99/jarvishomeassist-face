@@ -4,14 +4,22 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Zap, Droplets, Flame } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { formatMoney } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 
 /**
  * Dimmed "ghost" preview of a sample bill row + utility card set.
  * Used inside empty states to convey what a bill looks like before
  * the user uploads their first one.
+ *
+ * The amounts are illustrative placeholders, but they render in the user's
+ * chosen currency so the sample doesn't contradict the rest of the app. No
+ * conversion happens — only the symbol and formatting change.
  */
 export function GhostBillPreview() {
   const reduced = useReducedMotion();
+  const currency = useCurrency();
+  const demo = (n: number) => formatMoney(n, currency, { alwaysCents: true });
   const fade = reduced
     ? {}
     : {
@@ -33,25 +41,25 @@ export function GhostBillPreview() {
                 <span className="text-sm font-semibold">Electricity</span>
               </div>
               <span className="relative text-lg font-bold text-white tabular-nums">
-                $42.49
+                {demo(42.49)}
               </span>
             </div>
             <div className="p-5 space-y-2 text-sm text-neutral-400">
               <div className="flex justify-between">
                 <span>Winter Tier 1</span>
-                <span className="tabular-nums">$20.69</span>
+                <span className="tabular-nums">{demo(20.69)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Winter Tier 2</span>
-                <span className="tabular-nums">$6.22</span>
+                <span className="tabular-nums">{demo(6.22)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery</span>
-                <span className="tabular-nums">$14.55</span>
+                <span className="tabular-nums">{demo(14.55)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Ontario Electricity Rebate</span>
-                <span className="tabular-nums text-emerald-300">-$2.70</span>
+                <span className="tabular-nums text-emerald-300">{demo(-2.7)}</span>
               </div>
             </div>
           </Card>
@@ -63,17 +71,17 @@ export function GhostBillPreview() {
                 <span className="text-sm font-semibold">Water</span>
               </div>
               <span className="relative text-lg font-bold text-white tabular-nums">
-                $44.95
+                {demo(44.95)}
               </span>
             </div>
             <div className="p-5 space-y-2 text-sm text-neutral-400">
               <div className="flex justify-between">
                 <span>Usage 15 m³</span>
-                <span className="tabular-nums">$36.75</span>
+                <span className="tabular-nums">{demo(36.75)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery</span>
-                <span className="tabular-nums">$8.20</span>
+                <span className="tabular-nums">{demo(8.2)}</span>
               </div>
             </div>
           </Card>
@@ -85,13 +93,13 @@ export function GhostBillPreview() {
                 <span className="text-sm font-semibold">HVAC</span>
               </div>
               <span className="relative text-lg font-bold text-white tabular-nums">
-                $3.04
+                {demo(3.04)}
               </span>
             </div>
             <div className="p-5 space-y-2 text-sm text-neutral-400">
               <div className="flex justify-between">
                 <span>Natural Gas 8 m³</span>
-                <span className="tabular-nums">$3.04</span>
+                <span className="tabular-nums">{demo(3.04)}</span>
               </div>
             </div>
           </Card>

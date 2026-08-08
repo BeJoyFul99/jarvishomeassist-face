@@ -15,6 +15,8 @@ import {
   Loader2,
   Target,
 } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 
 const container = staggerContainer(0.06);
 const item = springItem;
@@ -60,15 +62,10 @@ const getHeatColor = (value: number) => {
   return "hsl(var(--volcano) / 0.9)";
 };
 
-const formatCurrency = (amount: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
-};
-
 export default function EnergyPage() {
+  // Display currency comes from the user's preference, not the API payload.
+  const currency = useCurrency();
+
   const [todayReadings, setTodayReadings] = useState<EnergyReading[]>([]);
   const [daySummary, setDaySummary] = useState<EnergySummary | null>(null);
   const [weekSummary, setWeekSummary] = useState<EnergySummary | null>(null);
@@ -104,8 +101,6 @@ export default function EnergyPage() {
 
   const activeSummary =
     activePeriod === "day" ? daySummary : activePeriod === "week" ? weekSummary : monthSummary;
-
-  const currency = activeSummary?.currency || "CAD";
 
   // Budget progress
   const budgetKWh = monthSummary?.budget_kwh || 0;
@@ -159,7 +154,7 @@ export default function EnergyPage() {
             {daySummary?.total_kwh?.toFixed(1) || "0"} <span className="text-xs text-muted-foreground">kWh</span>
           </p>
           <p className="text-[10px] text-muted-foreground">
-            {formatCurrency(daySummary?.total_cost || 0, currency)}
+            {formatMoney(daySummary?.total_cost || 0, currency, { alwaysCents: true })}
           </p>
         </div>
 
@@ -191,7 +186,7 @@ export default function EnergyPage() {
             <span className="text-[10px] font-mono text-muted-foreground">Rate Now</span>
           </div>
           <p className="text-xl font-semibold text-foreground font-mono">
-            {currentRate ? formatCurrency(currentRate.price_per_kwh, currency) : "—"} <span className="text-xs text-muted-foreground">/kWh</span>
+            {currentRate ? formatMoney(currentRate.price_per_kwh, currency, { decimals: 4 }) : "—"} <span className="text-xs text-muted-foreground">/kWh</span>
           </p>
           <p className="text-[10px] text-muted-foreground">{currentRate?.name || "No rate set"}</p>
         </div>
@@ -302,7 +297,7 @@ export default function EnergyPage() {
                 <p className="text-[10px] text-muted-foreground">kWh used</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-secondary/30">
-                <p className="text-lg font-semibold text-foreground font-mono">{formatCurrency(activeSummary?.total_cost || 0, currency)}</p>
+                <p className="text-lg font-semibold text-foreground font-mono">{formatMoney(activeSummary?.total_cost || 0, currency, { alwaysCents: true })}</p>
                 <p className="text-[10px] text-muted-foreground">estimated cost</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-secondary/30">
@@ -338,7 +333,7 @@ export default function EnergyPage() {
                             />
                           </div>
                           <span className="text-[10px] font-mono text-foreground w-16 text-right">{day.kwh} kWh</span>
-                          <span className="text-[10px] font-mono text-muted-foreground w-14 text-right">{formatCurrency(day.cost, currency)}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground w-14 text-right">{formatMoney(day.cost, currency, { alwaysCents: true })}</span>
                         </div>
                       );
                     })}
@@ -382,7 +377,7 @@ export default function EnergyPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Cost</span>
-                  <span className="font-mono text-foreground">{formatCurrency(monthCost, currency)} / {formatCurrency(budgetAmount, currency)}</span>
+                  <span className="font-mono text-foreground">{formatMoney(monthCost, currency, { alwaysCents: true })} / {formatMoney(budgetAmount, currency, { alwaysCents: true })}</span>
                 </div>
                 <div className="h-3 bg-secondary/30 rounded-full overflow-hidden">
                   <motion.div
@@ -469,7 +464,7 @@ export default function EnergyPage() {
                           )}
                         </div>
                         <div className="text-right">
-                          <span className="font-mono text-foreground">{formatCurrency(rate.price_per_kwh, currency)}/kWh</span>
+                          <span className="font-mono text-foreground">{formatMoney(rate.price_per_kwh, currency, { decimals: 4 })}/kWh</span>
                           <span className="text-muted-foreground ml-2">
                             {String(rate.start_hour).padStart(2, "0")}:00–{String(rate.end_hour).padStart(2, "0")}:00
                           </span>

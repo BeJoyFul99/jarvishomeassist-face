@@ -15,6 +15,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useBudgets, useUpsertBudget } from "@/lib/bills";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CURRENCIES, currencySymbol } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 
 interface Props {
   open: boolean;
@@ -29,6 +38,7 @@ const MONTH_NAMES = [
 
 export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
   const upsert = useUpsertBudget();
+  const userCurrency = useCurrency();
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
@@ -41,7 +51,7 @@ export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
   const [budgetAmount, setBudgetAmount] = useState<number>(0);
   const [budgetKwh, setBudgetKwh] = useState<number>(0);
   const [threshold, setThreshold] = useState<number>(80);
-  const [currency, setCurrency] = useState<string>("CAD");
+  const [currency, setCurrency] = useState<string>(userCurrency);
 
   // Pre-fill from existing budget whenever dialog opens
   useEffect(() => {
@@ -49,8 +59,8 @@ export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
     setBudgetAmount(existing?.budget_amount ?? 0);
     setBudgetKwh(existing?.budget_kwh ?? 0);
     setThreshold(existing?.alert_threshold_pct ?? 80);
-    setCurrency(existing?.currency ?? "CAD");
-  }, [open, existing]);
+    setCurrency(existing?.currency ?? userCurrency);
+  }, [open, existing, userCurrency]);
 
   async function submit() {
     if (!propertyId || budgetAmount <= 0) return;
@@ -100,7 +110,7 @@ export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label htmlFor="sb-amount" className="text-xs text-neutral-400">
-              Budget amount *
+              Budget amount * ({currencySymbol(currency)})
             </Label>
             <Input
               id="sb-amount"
@@ -155,12 +165,27 @@ export function SetBudgetDialog({ open, onOpenChange, propertyId }: Props) {
             <Label htmlFor="sb-cur" className="text-xs text-neutral-400">
               Currency
             </Label>
-            <Input
-              id="sb-cur"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="rounded-xl bg-white/5 border-white/10 text-white"
-            />
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger
+                id="sb-cur"
+                className="rounded-xl bg-white/5 border-white/10 text-white"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {/* A budget saved before this was a dropdown may carry a code
+                    outside the catalogue — keep it selectable so opening the
+                    dialog can't silently blank it. */}
+                {!CURRENCIES.some((c) => c.code === currency) && currency && (
+                  <SelectItem value={currency}>{currency}</SelectItem>
+                )}
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

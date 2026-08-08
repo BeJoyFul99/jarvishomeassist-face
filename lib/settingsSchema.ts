@@ -7,6 +7,8 @@
 // If you add a new server setting, also add its default to
 // SeedDefaultSettings() in the Go backend (handlers/settings.go).
 
+import { CURRENCIES, DEFAULT_CURRENCY } from "@/lib/currency";
+
 export type FieldType = "toggle" | "select" | "number";
 
 export interface SettingsField {
@@ -37,20 +39,13 @@ export interface SettingsField {
 export const SERVER_SETTINGS: SettingsField[] = [
   {
     key: "currency",
-    label: "Currency",
-    description: "Used across energy billing and budgets",
+    label: "Default currency",
+    description:
+      "Household default for displaying amounts. Each user can override it in their own Preferences.",
     type: "select",
-    defaultValue: "CAD",
+    defaultValue: DEFAULT_CURRENCY,
     section: "General",
-    options: [
-      { value: "CAD", label: "CAD — Canadian Dollar ($)" },
-      { value: "USD", label: "USD — US Dollar ($)" },
-      { value: "EUR", label: "EUR — Euro (\u20AC)" },
-      { value: "GBP", label: "GBP — British Pound (\u00A3)" },
-      { value: "AUD", label: "AUD — Australian Dollar ($)" },
-      { value: "JPY", label: "JPY — Japanese Yen (\u00A5)" },
-      { value: "INR", label: "INR — Indian Rupee (\u20B9)" },
-    ],
+    options: CURRENCIES.map((c) => ({ value: c.code, label: c.label })),
   },
   {
     key: "terminal_logs",
@@ -107,6 +102,16 @@ export const USER_PREFERENCES: SettingsField[] = [
       { value: "light", label: "Light (Coming soon)" },
       { value: "system", label: "System" },
     ],
+  },
+  {
+    key: "currency",
+    label: "Currency",
+    description:
+      "How amounts are displayed across the app — energy, utilities, bills and Debt Rescue. Changes the format only; it does not convert values.",
+    type: "select",
+    defaultValue: DEFAULT_CURRENCY,
+    section: "Appearance",
+    options: CURRENCIES.map((c) => ({ value: c.code, label: c.label })),
   },
   {
     key: "notifications",

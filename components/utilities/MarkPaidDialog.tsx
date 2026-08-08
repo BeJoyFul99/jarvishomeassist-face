@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useMarkPaid } from "@/lib/bills";
+import { formatMoney, currencySymbol } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 
 interface Props {
   open: boolean;
@@ -35,6 +37,7 @@ export function MarkPaidDialog({ open, onOpenChange, billId, totalAmount }: Prop
   const [amount, setAmount] = useState<number>(totalAmount);
   const [paidDate, setPaidDate] = useState<string>(todayIso());
   const mp = useMarkPaid();
+  const currency = useCurrency();
 
   useEffect(() => {
     if (open) {
@@ -47,7 +50,7 @@ export function MarkPaidDialog({ open, onOpenChange, billId, totalAmount }: Prop
     try {
       await mp.mutateAsync({ id: billId, paid_amount: amount, paid_date: paidDate });
       toast.success("Marked paid", {
-        description: `Recorded $${amount.toFixed(2)} on ${paidDate}.`,
+        description: `Recorded ${formatMoney(amount, currency, { alwaysCents: true })} on ${paidDate}.`,
       });
       onOpenChange(false);
     } catch (e) {
@@ -68,7 +71,9 @@ export function MarkPaidDialog({ open, onOpenChange, billId, totalAmount }: Prop
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="mp-amount" className="text-xs text-neutral-400">Amount</Label>
+            <Label htmlFor="mp-amount" className="text-xs text-neutral-400">
+              Amount ({currencySymbol(currency)})
+            </Label>
             <Input
               id="mp-amount"
               type="number"

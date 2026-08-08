@@ -48,6 +48,8 @@ import {
   type Property,
 } from "@/lib/bills";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useCurrency } from "@/store/usePreferencesStore";
+import { formatMoney, currencySymbol } from "@/lib/currency";
 import { toast } from "sonner";
 import { MarkPaidDialog } from "@/components/utilities/MarkPaidDialog";
 import BillPdfDialog from "@/components/utilities/BillPdfDialog";
@@ -95,17 +97,6 @@ const container = staggerContainer(0.06);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function money(n: number, currency = "CAD") {
-  const sign = n < 0 ? "-" : "";
-  const formatted = Math.abs(n).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return currency === "CAD"
-    ? `${sign}$${formatted}`
-    : `${sign}$${formatted} ${currency}`;
-}
-
 function daysBetween(a: Date, b: Date): number {
   return Math.floor((a.getTime() - b.getTime()) / (24 * 60 * 60 * 1000));
 }
@@ -138,20 +129,27 @@ function computeUtilityTotals(
 function EditableAmount({
   value,
   onChange,
+  currency,
   className,
 }: {
   value: number;
   onChange: (n: number) => void;
+  currency: string;
   className?: string;
 }) {
   return (
-    <input
-      type="number"
-      step="0.01"
-      value={value}
-      onChange={(e) => onChange(Number.parseFloat(e.target.value) || 0)}
-      className={`bg-transparent border-b border-white/20 focus:border-white/60 focus:outline-none w-32 tabular-nums ${className ?? ""}`}
-    />
+    <span className="inline-flex items-baseline gap-1">
+      <span className={`text-neutral-400 ${className ?? ""}`} aria-hidden>
+        {currencySymbol(currency)}
+      </span>
+      <input
+        type="number"
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(Number.parseFloat(e.target.value) || 0)}
+        className={`bg-transparent border-b border-white/20 focus:border-white/60 focus:outline-none w-32 tabular-nums ${className ?? ""}`}
+      />
+    </span>
   );
 }
 
@@ -221,6 +219,9 @@ export default function BillDetailPage(props: {
   const reduced = useReducedMotion();
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
   const isAdmin = effectiveRole === "administrator";
+  // The user's preference is the display currency everywhere on this page;
+  // `bill.currency` is an unvalidated free-text field and there is no FX here.
+  const currency = useCurrency();
   const [filter, setFilter] = useState<UtilityType | null>(null);
 
   // Edit mode state
@@ -374,6 +375,7 @@ export default function BillDetailPage(props: {
       >
         <HeroLeft
           bill={bill}
+          currency={currency}
           editing={editing}
           billEdits={billEdits}
           setBillEdits={setBillEdits}
@@ -384,6 +386,7 @@ export default function BillDetailPage(props: {
         />
         <HeroRight
           bill={bill}
+          currency={currency}
           totals={totals}
           lateFees={lateFees}
           filter={filter}
@@ -423,6 +426,7 @@ export default function BillDetailPage(props: {
         />
         <PaymentActivityCard
           bill={bill}
+          currency={currency}
           editing={editing}
           billEdits={billEdits}
           setBillEdits={setBillEdits}
@@ -443,7 +447,7 @@ export default function BillDetailPage(props: {
             subtotal={totals[u] ?? 0}
             totalAmount={bill.total_amount}
             dim={filter !== null && filter !== u}
-            currency={bill.currency}
+            currency={currency}
             editing={editing}
             lineEdits={lineEdits}
             setLineEdits={setLineEdits}
@@ -453,7 +457,7 @@ export default function BillDetailPage(props: {
 
       {/* Tier 2.25 — Bill Total Reconciliation */}
       <motion.section variants={fadeUpItem} aria-label="Bill total reconciliation">
-        <BillTotalSummary bill={bill} totals={totals} />
+        <BillTotalSummary bill={bill} currency={currency} totals={totals} />
       </motion.section>
 
       {/* Tier 2.5 — Meters */}
@@ -515,6 +519,7 @@ function BackLink() {
 
 function HeroLeft({
   bill,
+  currency,
   editing,
   billEdits,
   setBillEdits,
@@ -524,6 +529,7 @@ function HeroLeft({
   onLateFeesChange,
 }: {
   bill: UtilityBill;
+  currency: string;
   editing: boolean;
   billEdits: Partial<UtilityBill>;
   setBillEdits: React.Dispatch<React.SetStateAction<Partial<UtilityBill>>>;
@@ -551,15 +557,16 @@ function HeroLeft({
             <EditableAmount
               value={effectiveTotalAmount}
               onChange={onTotalAmountChange}
+              currency={currency}
               className="text-3xl sm:text-4xl leading-none font-bold"
             />
           </div>
         ) : (
           <div
             className="mt-2 text-4xl sm:text-5xl leading-none font-bold tabular-nums"
-            aria-label={`Total: ${money(bill.total_amount, bill.currency)}`}
+            aria-label={`Total: ${formatMoney(bill.total_amount, currency, { alwaysCents: true })}`}
           >
-            {money(bill.total_amount, bill.currency)}
+            {formatMoney(bill.total_amount, currency, { alwaysCents: true })}
           </div>
         )}
         {editing ? (
@@ -609,11 +616,12 @@ function HeroLeft({
               <EditableAmount
                 value={effectiveLateFees}
                 onChange={onLateFeesChange}
+                currency={currency}
                 className="text-sm"
               />
             </div>
           ) : (
-            <LateFeeChip amount={bill.late_fees} />
+            <LateFeeChip amount={bill.late_fees} currency={currency} />
           )
         )}
       </div>
@@ -625,12 +633,14 @@ function HeroLeft({
 
 function HeroRight({
   bill,
+  currency,
   totals,
   lateFees,
   filter,
   setFilter,
 }: {
   bill: UtilityBill;
+  currency: string;
   totals: Partial<Record<UtilityType, number>>;
   lateFees: number;
   filter: UtilityType | null;
@@ -680,7 +690,7 @@ function HeroRight({
             key={s.u}
             className={`h-full bg-gradient-to-r ${UTILITY_META[s.u].gradient}`}
             style={{ width: `${(s.amount / sum) * 100}%` }}
-            title={`${UTILITY_META[s.u].label}: ${money(s.amount, bill.currency)} (${((s.amount / sum) * 100).toFixed(0)}%)`}
+            title={`${UTILITY_META[s.u].label}: ${formatMoney(s.amount, currency, { alwaysCents: true })} (${((s.amount / sum) * 100).toFixed(0)}%)`}
           />
         ))}
       </div>
@@ -713,7 +723,7 @@ function HeroRight({
                 </span>
               </div>
               <div className="mt-2 text-sm font-semibold tabular-nums">
-                {money(s.amount, bill.currency)}
+                {formatMoney(s.amount, currency, { alwaysCents: true })}
               </div>
               <div className="text-[10px] text-neutral-500">
                 {((s.amount / sum) * 100).toFixed(0)}%
@@ -845,11 +855,13 @@ function StatementDetailsCard({
 
 function PaymentActivityCard({
   bill,
+  currency,
   editing,
   billEdits,
   setBillEdits,
 }: {
   bill: UtilityBill;
+  currency: string;
   editing: boolean;
   billEdits: Partial<UtilityBill>;
   setBillEdits: React.Dispatch<React.SetStateAction<Partial<UtilityBill>>>;
@@ -870,10 +882,10 @@ function PaymentActivityCard({
       </div>
       {editing ? (
         <div className="flex flex-col divide-y divide-white/5">
-          <EditablePaymentRow label="Previous balance" value={prev} onChange={patch("previous_balance")} />
-          <EditablePaymentRow label="Payment received" value={paid} onChange={patch("payments_received")} />
-          <EditablePaymentRow label="Balance forward" value={fwd} onChange={patch("balance_forward")} />
-          <EditablePaymentRow label="Late fees" value={late} onChange={patch("late_fees")} />
+          <EditablePaymentRow label="Previous balance" value={prev} currency={currency} onChange={patch("previous_balance")} />
+          <EditablePaymentRow label="Payment received" value={paid} currency={currency} onChange={patch("payments_received")} />
+          <EditablePaymentRow label="Balance forward" value={fwd} currency={currency} onChange={patch("balance_forward")} />
+          <EditablePaymentRow label="Late fees" value={late} currency={currency} onChange={patch("late_fees")} />
         </div>
       ) : !hasAny ? (
         <p className="text-sm text-neutral-500 py-4">
@@ -881,24 +893,24 @@ function PaymentActivityCard({
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-white/5">
-          <PaymentRow label="Previous balance" amount={prev} currency={bill.currency} />
+          <PaymentRow label="Previous balance" amount={prev} currency={currency} />
           <PaymentRow
             label="Payment received"
             amount={paid}
-            currency={bill.currency}
+            currency={currency}
             positiveTone="emerald"
           />
           <PaymentRow
             label="Balance forward"
             amount={fwd}
-            currency={bill.currency}
+            currency={currency}
             emphasize
           />
           {late > 0 && (
             <PaymentRow
               label="Late fees"
               amount={late}
-              currency={bill.currency}
+              currency={currency}
               negativeTone="crimson"
             />
           )}
@@ -911,16 +923,23 @@ function PaymentActivityCard({
 function EditablePaymentRow({
   label,
   value,
+  currency,
   onChange,
 }: {
   label: string;
   value: number;
+  currency: string;
   onChange: (n: number) => void;
 }) {
   return (
     <div className="flex items-center justify-between py-2 text-sm">
       <span className="text-neutral-400">{label}</span>
-      <EditableAmount value={value} onChange={onChange} className="text-sm text-right" />
+      <EditableAmount
+        value={value}
+        onChange={onChange}
+        currency={currency}
+        className="text-sm text-right"
+      />
     </div>
   );
 }
@@ -947,7 +966,9 @@ function PaymentRow({
   return (
     <div className="flex items-center justify-between py-2 text-sm">
       <span className="text-neutral-400">{label}</span>
-      <span className={`tabular-nums ${cls}`}>{money(amount, currency)}</span>
+      <span className={`tabular-nums ${cls}`}>
+        {formatMoney(amount, currency, { alwaysCents: true })}
+      </span>
     </div>
   );
 }
@@ -956,9 +977,11 @@ function PaymentRow({
 
 function BillTotalSummary({
   bill,
+  currency,
   totals,
 }: {
   bill: UtilityBill;
+  currency: string;
   totals: Partial<Record<UtilityType, number>>;
 }) {
   const lateFees = bill.late_fees ?? 0;
@@ -993,7 +1016,7 @@ function BillTotalSummary({
       <div className="flex flex-col divide-y divide-white/5 text-sm">
         {hasCharges ? (
           chargeRows.map((r) => (
-            <SummaryRow key={r.label} label={r.label} amount={r.amount} currency={bill.currency} />
+            <SummaryRow key={r.label} label={r.label} amount={r.amount} currency={currency} />
           ))
         ) : (
           <p className="py-3 text-sm text-neutral-500">
@@ -1005,7 +1028,7 @@ function BillTotalSummary({
           <SummaryRow
             label="Subtotal"
             amount={subtotal}
-            currency={bill.currency}
+            currency={currency}
             emphasize
           />
         )}
@@ -1015,26 +1038,26 @@ function BillTotalSummary({
             <SummaryRow
               label="Previous balance"
               amount={prev}
-              currency={bill.currency}
+              currency={currency}
             />
             <SummaryRow
               label="Payment received"
               amount={paid}
-              currency={bill.currency}
+              currency={currency}
               greenNegative
             />
           </>
         )}
 
         {fwd !== 0 && (
-          <SummaryRow label="Balance forward" amount={fwd} currency={bill.currency} />
+          <SummaryRow label="Balance forward" amount={fwd} currency={currency} />
         )}
 
         {lateFees > 0 && (
           <SummaryRow
             label="Late fees"
             amount={lateFees}
-            currency={bill.currency}
+            currency={currency}
             redPositive
           />
         )}
@@ -1042,7 +1065,7 @@ function BillTotalSummary({
         <div className="flex items-center justify-between py-3">
           <span className="text-sm font-semibold text-foreground">Total due</span>
           <span className="text-lg font-bold tabular-nums text-foreground">
-            {money(bill.total_amount, bill.currency)}
+            {formatMoney(bill.total_amount, currency, { alwaysCents: true })}
           </span>
         </div>
       </div>
@@ -1072,7 +1095,9 @@ function SummaryRow({
   return (
     <div className="flex items-center justify-between py-2">
       <span className="text-neutral-400">{label}</span>
-      <span className={`tabular-nums ${cls}`}>{money(amount, currency)}</span>
+      <span className={`tabular-nums ${cls}`}>
+        {formatMoney(amount, currency, { alwaysCents: true })}
+      </span>
     </div>
   );
 }
@@ -1134,14 +1159,20 @@ function DueChip({ days }: { days: number }) {
   );
 }
 
-function LateFeeChip({ amount }: { amount: number }) {
+function LateFeeChip({
+  amount,
+  currency,
+}: {
+  amount: number;
+  currency: string;
+}) {
   return (
     <Badge
       variant="outline"
       className="rounded-full px-2.5 py-1 gap-2 bg-crimson/10 text-crimson border-crimson/20"
     >
       <span className="inline-block h-2 w-2 rounded-full bg-crimson" aria-hidden />
-      <span>Late fee {money(amount)}</span>
+      <span>Late fee {formatMoney(amount, currency, { alwaysCents: true })}</span>
     </Badge>
   );
 }
@@ -1192,7 +1223,7 @@ function UtilityCard({
             </span>
           </div>
           <span className="text-lg font-bold tabular-nums text-white">
-            {money(subtotal, currency)}
+            {formatMoney(subtotal, currency, { alwaysCents: true })}
           </span>
         </div>
       </div>
@@ -1244,7 +1275,7 @@ function UtilityCard({
                       placeholder="unit"
                       className="w-14 !text-left"
                     />
-                    <span>@ $</span>
+                    <span>@ {currencySymbol(currency)}</span>
                     <input
                       type="number"
                       step="0.00001"
@@ -1263,7 +1294,9 @@ function UtilityCard({
                         ? `${li.usage_amount.toLocaleString()} ${li.usage_unit}`
                         : null}
                       {li.usage_amount !== null && li.rate !== null ? " · " : ""}
-                      {li.rate !== null ? `@ $${li.rate.toFixed(5)}` : null}
+                      {li.rate !== null
+                        ? `@ ${formatMoney(li.rate, currency, { decimals: 5 })}`
+                        : null}
                     </div>
                   )
                 )}
@@ -1272,6 +1305,7 @@ function UtilityCard({
                 <EditableAmount
                   value={currentAmount}
                   onChange={(n) => setField({ amount: n })}
+                  currency={currency}
                   className="text-sm"
                 />
               ) : (
@@ -1281,7 +1315,7 @@ function UtilityCard({
                   }`}
                 >
                   {li.amount < 0 ? "-" : ""}
-                  {money(Math.abs(li.amount), currency)}
+                  {formatMoney(Math.abs(li.amount), currency, { alwaysCents: true })}
                 </div>
               )}
             </div>

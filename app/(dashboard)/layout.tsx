@@ -16,6 +16,7 @@ import { useFleetNotifications } from "@/hooks/useFleetNotifications";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useNotificationStore } from "@/store/useNotificationStore";
+import { usePreferencesStore } from "@/store/usePreferencesStore";
 import { useAuthInterceptor } from "@/hooks/useAuthInterceptor";
 import { useRouteGuard } from "@/components/RouteGuard";
 import { useUserEvents } from "@/hooks/useUserEvents";
@@ -53,6 +54,14 @@ const DashboardInner = ({ children }: { children: React.ReactNode }) => {
       fetchNotifications();
     }
   }, [isAuthenticated, fetchNotifications]);
+
+  // Load display preferences (currency) once for the whole dashboard.
+  const loadPreferences = usePreferencesStore((s) => s.loadPreferences);
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      loadPreferences();
+    }
+  }, [isAuthenticated, loadPreferences]);
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
   const isAdmin = effectiveRole === "administrator";
 

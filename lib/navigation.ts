@@ -17,6 +17,7 @@ import {
   Megaphone,
   Receipt,
   FileText,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,6 +54,7 @@ export const adminConfigItems: NavItem[] = [
 // Tools — shared by admins and family members (owner-scoped data; no guests)
 export const toolsItems: NavItem[] = [
   { title: "Resume Builder", url: "/tools/resume", icon: FileText },
+  { title: "Debt Rescue", url: "/tools/debt", icon: LifeBuoy },
 ];
 
 // Family member navigation

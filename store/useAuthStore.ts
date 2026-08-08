@@ -27,6 +27,8 @@ interface AuthState {
 
   login: (user: AuthUser) => void;
   logout: () => void;
+  /** Merge updated fields into the current user (e.g. after a profile save) */
+  updateUser: (patch: Partial<AuthUser>) => void;
   setViewingAsFamily: (v: boolean) => void;
   /** Attempt to refresh the session using the HttpOnly refresh cookie */
   refresh: () => Promise<boolean>;
@@ -98,6 +100,12 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           viewingAsFamily: false,
         });
+      },
+
+      updateUser: (patch: Partial<AuthUser>) => {
+        const { user } = get();
+        if (!user) return;
+        set({ user: { ...user, ...patch } });
       },
 
       logout: () => {

@@ -29,6 +29,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 
 import {
   useBills, useProperties, useBudgets, usePace, useDeleteProperty,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/bills";
 import { useUtilityPropertyStore } from "@/store/useUtilityPropertyStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useCurrency } from "@/store/usePreferencesStore";
 import { toast } from "sonner";
 import { useBillExtraction } from "@/hooks/useBillExtraction";
 import { UploadBillDialog } from "@/components/utilities/UploadBillDialog";
@@ -57,6 +59,7 @@ export default function UtilitiesPage() {
   const effectiveRole = useAuthStore((s) => s.effectiveRole());
   const isAdmin = effectiveRole === "administrator";
   const router = useRouter();
+  const currency = useCurrency();
 
   const [tab, setTab] = useState<Tab>("bills");
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -231,7 +234,7 @@ export default function UtilitiesPage() {
           icon={TrendingUp}
           color="text-emerald"
           label="Projected"
-          value={projected > 0 ? formatMoney(projected, currentBudget?.currency ?? "CAD") : "—"}
+          value={projected > 0 ? formatMoney(projected, currency, { alwaysCents: true }) : "—"}
           sub={
             pace?.projection?.baseline === "yoy"
               ? "YoY baseline"
@@ -247,7 +250,7 @@ export default function UtilitiesPage() {
           value={currentBudget && currentBudget.budget_amount > 0 ? `${budgetPct.toFixed(0)}%` : "—"}
           sub={
             currentBudget && currentBudget.budget_amount > 0
-              ? `${formatMoney(projected, currentBudget.currency)} / ${formatMoney(currentBudget.budget_amount, currentBudget.currency)}`
+              ? `${formatMoney(projected, currency, { alwaysCents: true })} / ${formatMoney(currentBudget.budget_amount, currency, { alwaysCents: true })}`
               : "No budget set"
           }
         />
@@ -441,11 +444,6 @@ export default function UtilitiesPage() {
 
 // ── Helpers & subcomponents ─────────────────────────────────
 
-function formatMoney(n: number, currency = "CAD") {
-  const f = n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return currency === "CAD" ? `$${f}` : `$${f} ${currency}`;
-}
-
 function PropertyChip({
   properties, currentPropertyId, onSelect, isAdmin, onAddProperty, onDeleteProperty,
 }: {
@@ -588,6 +586,7 @@ function BillRow({ bill }: { bill: UtilityBill }) {
   const router = useRouter();
   const reextract = useReextract();
   const del = useDeleteBill();
+  const currency = useCurrency();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const parse = (v: string | null | undefined): Date | null => {
@@ -718,7 +717,7 @@ function BillRow({ bill }: { bill: UtilityBill }) {
             </TableCell>
             <TableCell className="text-right font-semibold tabular-nums">
               <Link href={`/utilities/${bill.id}`} tabIndex={-1} className="block">
-                {formatMoney(bill.total_amount, bill.currency)}
+                {formatMoney(bill.total_amount, currency, { alwaysCents: true })}
               </Link>
             </TableCell>
             <TableCell className="w-10 pr-2">
@@ -755,7 +754,7 @@ function BillRow({ bill }: { bill: UtilityBill }) {
               Delete this bill?
             </DialogTitle>
             <DialogDescription className="text-neutral-400">
-              Statement {fmt(statement)} — {formatMoney(bill.total_amount, bill.currency)}. This
+              Statement {fmt(statement)} — {formatMoney(bill.total_amount, currency, { alwaysCents: true })}. This
               hides the bill from lists and reports; the PDF and extraction data remain.
             </DialogDescription>
           </DialogHeader>

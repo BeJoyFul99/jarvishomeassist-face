@@ -18,7 +18,7 @@ const container = staggerContainer(0.08);
 const item = springItem;
 
 const ProfilePage = () => {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const isAdmin = user?.role === "administrator";
   const isGuest = user?.role === "guest";
 
@@ -37,12 +37,41 @@ const ProfilePage = () => {
   });
 
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(profile);
 
-  const handleSave = () => {
-    setProfile(draft);
-    setEditing(false);
-    toast.success("Profile updated successfully");
+  const handleSave = async () => {
+    const displayName = draft.displayName.trim();
+    if (!displayName) {
+      toast.error("Display name cannot be empty");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: displayName }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.message || "Failed to update profile");
+        return;
+      }
+
+      const savedName = data?.user?.display_name ?? displayName;
+      updateUser({ display_name: savedName });
+      const saved = { ...draft, displayName: savedName };
+      setProfile(saved);
+      setDraft(saved);
+      setEditing(false);
+      toast.success("Profile updated successfully");
+    } catch {
+      toast.error("Network error — profile was not saved");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -126,11 +155,11 @@ const ProfilePage = () => {
                 ) : (
                   <div className="flex gap-2">
                     <motion.div whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
-                      <Button size="sm" onClick={handleSave} className="font-mono text-xs">
-                        <Save className="h-3 w-3 mr-1" /> Save
+                      <Button size="sm" onClick={handleSave} disabled={saving} className="font-mono text-xs">
+                        <Save className="h-3 w-3 mr-1" /> {saving ? "Saving…" : "Save"}
                       </Button>
                     </motion.div>
-                    <Button variant="ghost" size="sm" onClick={handleCancel} className="font-mono text-xs text-muted-foreground">
+                    <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving} className="font-mono text-xs text-muted-foreground">
                       Cancel
                     </Button>
                   </div>
@@ -167,7 +196,7 @@ const ProfilePage = () => {
             <User className="h-4 w-4 text-primary" /> {isGuest ? "Guest Details" : "Account Details"}
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            {isGuest ? "Update your display name and timezone" : "Manage your identity and preferences"}
+            Display name is the only self-editable field — everything else is read-only here.
           </p>
         </div>
         <div className="space-y-5">
@@ -177,7 +206,7 @@ const ProfilePage = () => {
                 <Input
                   value={draft.displayName}
                   onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
-                  disabled={!editing}
+                  disabled={!editing || saving}
                   className="font-mono text-sm bg-secondary/50 border-white/[0.06]"
                 />
               </div>
@@ -186,8 +215,7 @@ const ProfilePage = () => {
                   <Label className="text-xs font-mono text-muted-foreground">Username</Label>
                   <Input
                     value={draft.username}
-                    onChange={(e) => setDraft({ ...draft, username: e.target.value })}
-                    disabled={!editing}
+                    disabled
                     className="font-mono text-sm bg-secondary/50 border-white/[0.06]"
                   />
                 </div>
@@ -200,10 +228,12 @@ const ProfilePage = () => {
                   <Input
                     type="email"
                     value={draft.email}
-                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                    disabled={!editing}
+                    disabled
                     className="font-mono text-sm bg-secondary/50 border-white/[0.06]"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Email is your sign-in identity — an administrator changes it.
+                  </p>
                 </div>
               )}
               {!isGuest && (
@@ -211,11 +241,7 @@ const ProfilePage = () => {
                   <Label className="text-xs font-mono text-muted-foreground flex items-center gap-1.5">
                     <Terminal className="h-3 w-3" /> Default Shell
                   </Label>
-                  <Select
-                    value={draft.shell}
-                    onValueChange={(v) => setDraft({ ...draft, shell: v })}
-                    disabled={!editing}
-                  >
+                  <Select value={draft.shell} disabled>
                     <SelectTrigger className="font-mono text-sm bg-secondary/50 border-white/[0.06]">
                       <SelectValue />
                     </SelectTrigger>
@@ -233,19 +259,14 @@ const ProfilePage = () => {
                   <Label className="text-xs font-mono text-muted-foreground">Hostname</Label>
                   <Input
                     value={draft.hostname}
-                    onChange={(e) => setDraft({ ...draft, hostname: e.target.value })}
-                    disabled={!editing}
+                    disabled
                     className="font-mono text-sm bg-secondary/50 border-white/[0.06]"
                   />
                 </div>
               )}
               <div className="space-y-2">
                 <Label className="text-xs font-mono text-muted-foreground">Timezone</Label>
-                <Select
-                  value={draft.timezone}
-                  onValueChange={(v) => setDraft({ ...draft, timezone: v })}
-                  disabled={!editing}
-                >
+                <Select value={draft.timezone} disabled>
                   <SelectTrigger className="font-mono text-sm bg-secondary/50 border-white/[0.06]">
                     <SelectValue />
                   </SelectTrigger>
@@ -277,11 +298,7 @@ const ProfilePage = () => {
                         <p className="text-sm text-foreground">Two-Factor Authentication</p>
                         <p className="text-xs text-muted-foreground font-mono">TOTP via authenticator app</p>
                       </div>
-                      <Switch
-                        checked={draft.twoFactor}
-                        onCheckedChange={(v) => setDraft({ ...draft, twoFactor: v })}
-                        disabled={!editing}
-                      />
+                      <Switch checked={draft.twoFactor} disabled />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
@@ -289,7 +306,7 @@ const ProfilePage = () => {
                         <p className="text-xs text-muted-foreground font-mono">{profile.sshKeys} keys registered</p>
                       </div>
                       <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
-                        <Button variant="outline" size="sm" className="font-mono text-xs border-white/[0.06]" disabled={!editing}>
+                        <Button variant="outline" size="sm" className="font-mono text-xs border-white/[0.06]" disabled>
                           <Key className="h-3 w-3 mr-1" /> Manage Keys
                         </Button>
                       </motion.div>
@@ -300,7 +317,7 @@ const ProfilePage = () => {
                         <p className="text-xs text-muted-foreground font-mono">Last changed 14 days ago</p>
                       </div>
                       <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
-                        <Button variant="outline" size="sm" className="font-mono text-xs border-white/[0.06]" disabled={!editing}>
+                        <Button variant="outline" size="sm" className="font-mono text-xs border-white/[0.06]" disabled>
                           Update
                         </Button>
                       </motion.div>

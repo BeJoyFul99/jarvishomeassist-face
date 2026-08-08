@@ -35,6 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
+import { formatMoney } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 
 const container = staggerContainer(0.06);
 const item = fadeUpItem;
@@ -88,6 +90,7 @@ export default function InferencePage() {
   const [errors, setErrors] = useState<ErrorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(7);
+  const currency = useCurrency();
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -302,7 +305,11 @@ export default function InferencePage() {
           <MetricCard
             icon={DollarSign}
             label="Cost Today"
-            value={hasData ? `$${today!.total_cost.toFixed(4)}` : "—"}
+            value={
+              hasData
+                ? formatMoney(today!.total_cost, currency, { decimals: 4 })
+                : "—"
+            }
             sub={hasData ? `${today!.total_calls} calls` : "No data yet"}
             color="text-emerald"
             loading={loading}
@@ -356,8 +363,12 @@ export default function InferencePage() {
             </div>
             <div className="flex justify-between mt-1.5">
               <span className="text-[10px] text-muted-foreground/60">
-                Est. cost: $
-                {((today!.total_neurons / 1000) * COST_PER_1K).toFixed(4)}
+                Est. cost:{" "}
+                {formatMoney(
+                  (today!.total_neurons / 1000) * COST_PER_1K,
+                  currency,
+                  { decimals: 4 },
+                )}
               </span>
               <span className="text-[10px] text-muted-foreground/60">
                 {formatNum(
@@ -441,7 +452,10 @@ export default function InferencePage() {
                     formatter={(v: any, name: any) => {
                       const val = Number(v) || 0;
                       if (name === "total_cost")
-                        return [`$${val.toFixed(4)}`, "Cost"];
+                        return [
+                          formatMoney(val, currency, { decimals: 4 }),
+                          "Cost",
+                        ];
                       if (name === "total_neurons")
                         return [formatNum(val), "Neurons"];
                       return [v, name];
@@ -534,10 +548,19 @@ export default function InferencePage() {
                     const avgDaily = totalCost / daily.length;
                     const avgNeurons = totalNeurons / daily.length;
                     return [
-                      ["Avg daily cost", `$${avgDaily.toFixed(4)}`],
+                      [
+                        "Avg daily cost",
+                        formatMoney(avgDaily, currency, { decimals: 4 }),
+                      ],
                       ["Avg daily neurons", formatNum(avgNeurons)],
-                      ["Projected /month", `$${(avgDaily * 30).toFixed(3)}`],
-                      [`Total (${days}d)`, `$${totalCost.toFixed(4)}`],
+                      [
+                        "Projected /month",
+                        formatMoney(avgDaily * 30, currency, { decimals: 3 }),
+                      ],
+                      [
+                        `Total (${days}d)`,
+                        formatMoney(totalCost, currency, { decimals: 4 }),
+                      ],
                     ].map(([k, v]) => (
                       <div key={k} className="flex justify-between text-xs">
                         <span className="text-muted-foreground">{k}</span>

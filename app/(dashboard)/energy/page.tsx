@@ -22,6 +22,8 @@ import {
   Snowflake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMoney, currencySymbol } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 import {
   Dialog,
   DialogContent,
@@ -101,15 +103,10 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const formatCurrency = (amount: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
-};
-
 export default function EnergyManagementPage() {
+  // Display currency comes from the user's preference, not the API payload.
+  const currency = useCurrency();
+
   // Data
   const [rates, setRates] = useState<EnergyRate[]>([]);
   const [budget, setBudget] = useState<EnergyBudget | null>(null);
@@ -351,7 +348,6 @@ export default function EnergyManagementPage() {
   const currentRate = rates.find((r) => r.is_active && currentHour >= r.start_hour && currentHour < r.end_hour);
   const activeRates = rates.filter((r) => r.is_active).sort((a, b) => a.start_hour - b.start_hour);
   const inactiveRates = rates.filter((r) => !r.is_active);
-  const currency = summary?.currency || budget?.currency || "CAD";
 
   const monthKWh = summary?.total_kwh || 0;
   const monthCost = summary?.total_cost || 0;
@@ -404,7 +400,7 @@ export default function EnergyManagementPage() {
             <span className="text-[10px] font-mono text-muted-foreground">Current Rate</span>
           </div>
           <p className="text-xl font-semibold text-foreground font-mono">
-            {currentRate ? formatCurrency(currentRate.price_per_kwh, currency) : "—"}
+            {currentRate ? formatMoney(currentRate.price_per_kwh, currency, { decimals: 4 }) : "—"}
           </p>
           <p className="text-[10px] text-muted-foreground">{currentRate?.name || "No rate"} /kWh</p>
         </div>
@@ -415,7 +411,7 @@ export default function EnergyManagementPage() {
             <span className="text-[10px] font-mono text-muted-foreground">This Month</span>
           </div>
           <p className="text-xl font-semibold text-foreground font-mono">{monthKWh.toFixed(1)}</p>
-          <p className="text-[10px] text-muted-foreground">kWh · {formatCurrency(monthCost, currency)}</p>
+          <p className="text-[10px] text-muted-foreground">kWh · {formatMoney(monthCost, currency, { alwaysCents: true })}</p>
         </div>
 
         <div className="glass-card p-4 space-y-1">
@@ -497,7 +493,7 @@ export default function EnergyManagementPage() {
                         </div>
                         <div className="absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:block z-20
                           bg-popover border border-border rounded px-2 py-1 text-[10px] font-mono text-foreground whitespace-nowrap shadow-lg">
-                          {rate.name}: {formatCurrency(rate.price_per_kwh, currency)}/kWh ({String(rate.start_hour).padStart(2, "0")}:00–{String(rate.end_hour).padStart(2, "0")}:00)
+                          {rate.name}: {formatMoney(rate.price_per_kwh, currency, { decimals: 4 })}/kWh ({String(rate.start_hour).padStart(2, "0")}:00–{String(rate.end_hour).padStart(2, "0")}:00)
                         </div>
                       </div>
                     );
@@ -568,7 +564,7 @@ export default function EnergyManagementPage() {
 
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl font-semibold text-foreground font-mono">
-                        {formatCurrency(rate.price_per_kwh, currency)}
+                        {formatMoney(rate.price_per_kwh, currency, { decimals: 4 })}
                       </span>
                       <span className="text-xs text-muted-foreground">/kWh</span>
                     </div>
@@ -657,7 +653,7 @@ export default function EnergyManagementPage() {
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Spent</span>
                       <span className="font-mono text-foreground">
-                        {formatCurrency(monthCost, currency)} / {formatCurrency(budgetAmount, currency)}
+                        {formatMoney(monthCost, currency, { alwaysCents: true })} / {formatMoney(budgetAmount, currency, { alwaysCents: true })}
                       </span>
                     </div>
                     <div className="h-4 bg-secondary/30 rounded-full overflow-hidden">
@@ -674,7 +670,7 @@ export default function EnergyManagementPage() {
                       <span className={`font-medium ${budgetCostPct > 90 ? "text-crimson" : budgetCostPct > 70 ? "text-amber" : "text-emerald"}`}>
                         {budgetCostPct.toFixed(0)}% of budget
                       </span>
-                      <span className="text-muted-foreground">{formatCurrency(budgetAmount - monthCost, currency)} remaining</span>
+                      <span className="text-muted-foreground">{formatMoney(budgetAmount - monthCost, currency, { alwaysCents: true })} remaining</span>
                     </div>
                   </div>
                 </div>
@@ -706,7 +702,7 @@ export default function EnergyManagementPage() {
                                 />
                               </div>
                               <span className="text-[10px] font-mono text-foreground w-16 text-right">{day.kwh} kWh</span>
-                              <span className="text-[10px] font-mono text-muted-foreground w-14 text-right">{formatCurrency(day.cost, currency)}</span>
+                              <span className="text-[10px] font-mono text-muted-foreground w-14 text-right">{formatMoney(day.cost, currency, { alwaysCents: true })}</span>
                             </div>
                           );
                         })}
@@ -819,7 +815,7 @@ export default function EnergyManagementPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Price / kWh</Label>
+                <Label className="text-[11px] font-semibold text-muted-foreground/80 uppercase">Price / kWh ({currencySymbol(currency)})</Label>
                 <Input
                   type="number"
                   step="0.01"

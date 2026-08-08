@@ -6,17 +6,14 @@ import { Sparkles, TrendingUp, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useBudgets, usePace } from "@/lib/bills";
+import { formatMoney } from "@/lib/currency";
+import { useCurrency } from "@/store/usePreferencesStore";
 import { BudgetPaceSkeleton } from "@/components/utilities/Skeletons";
 
 interface Props {
   propertyId: number;
   isAdmin: boolean;
   onSetBudget: () => void;
-}
-
-function money(n: number, currency = "CAD") {
-  const f = n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return currency === "CAD" ? `$${f}` : `$${f} ${currency}`;
 }
 
 const MONTH_NAMES = [
@@ -40,6 +37,7 @@ const baselineLabel: Record<Baseline, string> = {
 
 export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
   const reduced = useReducedMotion();
+  const currency = useCurrency();
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
@@ -52,7 +50,6 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
   const threshold = currentBudget?.alert_threshold_pct ?? 80;
   const projected = pace?.projection?.projected ?? 0;
   const baseline: Baseline = (pace?.projection?.baseline ?? "unknown") as Baseline;
-  const currency = currentBudget?.currency ?? "CAD";
 
   const pct = budgetAmount > 0 ? Math.min(200, (projected / budgetAmount) * 100) : 0;
   const barClass =
@@ -100,7 +97,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
           {budgetAmount > 0 ? (
             <>
               <div className="mt-1 text-3xl sm:text-4xl leading-none font-bold tabular-nums">
-                {money(budgetAmount, currency)}
+                {formatMoney(budgetAmount, currency, { alwaysCents: true })}
                 <span className="text-base font-normal text-neutral-400"> / month</span>
               </div>
               <div className="mt-1 text-sm text-neutral-400">Alerts at {threshold}%</div>
@@ -128,7 +125,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-neutral-300" aria-hidden />
             <span className="text-2xl sm:text-3xl leading-none font-bold tabular-nums">
-              {money(projected, currency)}
+              {formatMoney(projected, currency, { alwaysCents: true })}
             </span>
           </div>
           <Badge
@@ -181,7 +178,7 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
             />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground tabular-nums">
-            <span>{money(projected, currency)} projected</span>
+            <span>{formatMoney(projected, currency, { alwaysCents: true })} projected</span>
             <span
               className={
                 pct > 100
@@ -193,12 +190,12 @@ export function BudgetPaceCard({ propertyId, isAdmin, onSetBudget }: Props) {
             >
               {pct.toFixed(0)}% of budget
             </span>
-            <span>{money(budgetAmount, currency)}</span>
+            <span>{formatMoney(budgetAmount, currency, { alwaysCents: true })}</span>
           </div>
           {pct > 100 && (
             <div className="mt-3 flex items-center gap-2 text-xs text-crimson">
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-              Projected to exceed budget by {money(projected - budgetAmount, currency)}
+              Projected to exceed budget by {formatMoney(projected - budgetAmount, currency, { alwaysCents: true })}
             </div>
           )}
         </div>
